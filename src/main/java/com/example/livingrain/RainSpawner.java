@@ -21,7 +21,9 @@ public final class RainSpawner {
 
     // Shared with the particles (updated once per tick, before any particle ticks).
     public static double camX, camY, camZ;
-    public static float yawCos = 1f, yawSin = 0f;
+    /** The camera's right and up directions in world space (they depend on yaw AND pitch). */
+    public static float rightX = -1f, rightZ = 0f, upX = 0f, upY = 1f, upZ = 0f;
+    public static float radiusNow = 22f;
     public static float windX, windZ, windTurb;
     public static double killDistSq = 1600.0;
     public static boolean flipSlant, splashes;
@@ -42,9 +44,18 @@ public final class RainSpawner {
         camX = eye.x;
         camY = eye.y;
         camZ = eye.z;
+        // Minecraft: yaw 0 = looking south, pitch > 0 = looking down. right = (-cos y, 0, -sin y),
+        // up = right x look = (-sin y * sin p, cos p, cos y * sin p).
         double yaw = Math.toRadians(player.getYRot());
-        yawCos = (float) Math.cos(yaw);
-        yawSin = (float) Math.sin(yaw);
+        double pitch = Math.toRadians(player.getXRot());
+        float sy = (float) Math.sin(yaw), cy = (float) Math.cos(yaw);
+        float sp = (float) Math.sin(pitch), cp = (float) Math.cos(pitch);
+        rightX = -cy;
+        rightZ = -sy;
+        upX = -sy * sp;
+        upY = cp;
+        upZ = cy * sp;
+        radiusNow = cfg.radius;
         flipSlant = cfg.flipSlant;
         splashes = cfg.splashes;
         double kill = cfg.radius + 20.0;
@@ -78,11 +89,14 @@ public final class RainSpawner {
         acc += perTick;
         int count = (int) acc;
         acc -= count;
-        count = Math.min(count, 500);
+        count = Math.min(count, 1500);
         count = Math.min(count, Math.max(0, cfg.maxParticles - RainParticle.live));
 
-        float size = (0.14f + 0.36f * inten) * cfg.dropSize * StormDirector.sizeMul;
-        float alpha = (0.22f + 0.33f * inten) * cfg.opacity;
+        // Motion blur: longer streaks, spread over more length, so each one is a little fainter.
+        float stretch = 0.55f + 0.9f * cfg.motionBlur;
+        float blurAlpha = (float) Math.min(1.35, 1.0 / Math.sqrt(stretch));
+        float size = (0.14f + 0.36f * inten) * cfg.dropSize * StormDirector.sizeMul * stretch;
+        float alpha = (0.22f + 0.33f * inten) * cfg.opacity * blurAlpha;
         double height = cfg.spawnHeight;
 
         for (int n = 0; n < count; n++) {

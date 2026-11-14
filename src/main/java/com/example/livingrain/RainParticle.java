@@ -29,6 +29,9 @@ public class RainParticle extends SingleQuadParticle {
     private final boolean snow;
     private final float windMul;
     private final float phase;
+    private final float baseSize;
+    private final float baseAlpha;
+    private final double refSpeed;
     private boolean counted = true;
 
     protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow,
@@ -39,6 +42,9 @@ public class RainParticle extends SingleQuadParticle {
         this.xd = vx;
         this.yd = vy;
         this.zd = vz;
+        this.baseSize = pendingSize;
+        this.baseAlpha = pendingAlpha;
+        this.refSpeed = Math.max(0.01, Math.sqrt(vx * vx + vy * vy + vz * vz));
         this.quadSize = pendingSize;
         this.gravity = 0f;
         this.friction = 1f;
@@ -47,7 +53,7 @@ public class RainParticle extends SingleQuadParticle {
         this.phase = this.random.nextFloat() * 100f;
         if (snow) this.setColor(1.0f, 1.0f, 1.0f);
         else this.setColor(0.80f, 0.88f, 1.0f);
-        this.setAlpha(pendingAlpha);
+        this.setAlpha(0f);          // fades in over the first few ticks
         live++;
     }
 
@@ -92,11 +98,28 @@ public class RainParticle extends SingleQuadParticle {
                 this.xd += (this.random.nextFloat() - 0.5f) * 0.5f * turb * mag;
                 this.zd += (this.random.nextFloat() - 0.5f) * 0.5f * turb * mag;
             }
-            // Tilt the streak along its direction of travel, as seen from the player's point of view.
-            float right = (float) (-RainSpawner.yawCos * this.xd - RainSpawner.yawSin * this.zd);
-            float tilt = (float) Math.atan2(right, -this.yd);
+        }
+
+        double speed = Math.sqrt(this.xd * this.xd + this.yd * this.yd + this.zd * this.zd);
+        if (!snow) {
+            // Where does this drop travel on the SCREEN? Project its velocity onto the camera's right and up
+            // directions (which depend on both where you look sideways AND up/down).
+            double sx = this.xd * RainSpawner.rightX + this.zd * RainSpawner.rightZ;
+            double sy = this.xd * RainSpawner.upX + this.yd * RainSpawner.upY + this.zd * RainSpawner.upZ;
+            float tilt = (float) Math.atan2(sx, -sy);
+            if (RainSpawner.flipSlant) tilt = -tilt;
+            // Keep the angle continuous (no sudden 360-degree spins between ticks).
+            float prev = this.roll;
+            while (tilt - prev > Math.PI) tilt -= (float) (2 * Math.PI);
+            while (tilt - prev < -Math.PI) tilt += (float) (2 * Math.PI);
             this.oRoll = this.roll;
-            this.roll = RainSpawner.flipSlant ? -tilt : tilt;
+            this.roll = tilt;
+
+            // Seen from straight above or below, a falling drop is almost a point; seen from the side it is a full
+            // streak. Faster drops (gusts) are stretched longer: that is the motion blur.
+            double proj = Math.sqrt(sx * sx + sy * sy) / Math.max(0.0001, speed);
+            double fast = Math.max(0.7, Math.min(2.0, speed / this.refSpeed));
+            this.quadSize = (float) (this.baseSize * Math.max(0.3, Math.min(1.0, proj)) * fast);
         }
 
         this.setPos(this.x + this.xd, this.y + this.yd, this.z + this.zd);
@@ -108,6 +131,18 @@ public class RainParticle extends SingleQuadParticle {
             this.remove();
             return;
         }
+
+        // Soft edges: fade in after spawning, fade out toward the edge of the rain area, and fade when very close
+        // to the camera (a streak right in front of your eye would look huge).
+        double dy = this.y - RainSpawner.camY;
+        double near = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float a = this.baseAlpha * Math.min(1f, this.age / 6f);
+        if (near < 3.5) a *= (float) (near / 3.5);
+        double dh = Math.sqrt(dx * dx + dz * dz);
+        double fadeStart = RainSpawner.radiusNow * 0.70;
+        double fadeEnd = RainSpawner.radiusNow * 1.15;
+        if (dh > fadeStart) a *= (float) Math.max(0.0, (fadeEnd - dh) / (fadeEnd - fadeStart));
+        this.setAlpha(a);
 
         int top = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(this.x), Mth.floor(this.z));
         if (this.y <= top) {

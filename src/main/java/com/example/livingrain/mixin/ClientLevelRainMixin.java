@@ -21,4 +21,10 @@ public abstract class ClientLevelRainMixin {
         Float v = StormDirector.hookValue(partialTick);
         if (v != null) cir.setReturnValue(v);
     }
+
+    @Inject(method = "getThunderLevel", at = @At("RETURN"), cancellable = true, require = 0)
+    private void livingrain$thunderLevel(float partialTick, CallbackInfoReturnable<Float> cir) {
+        Float v = StormDirector.hookThunder(partialTick);
+        if (v != null) cir.setReturnValue(v);
+    }
 }

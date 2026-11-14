@@ -93,6 +93,20 @@ public final class LivingRainConfigScreen {
                 .build();
     }
 
+    private static ButtonOption testButton(String name, String tip, int weather, int tier) {
+        return ButtonOption.createBuilder()
+                .name(Component.literal(name))
+                .description(OptionDescription.of(Component.literal(tip
+                        + " Starts test mode and returns to the game right away. Unsaved changes on this screen are discarded.")))
+                .action((scr, btn) -> {
+                    CFG.testMode = true;
+                    CFG.testWeather = weather;
+                    if (tier >= 0) CFG.testTier = tier;
+                    Minecraft.getInstance().gui.setScreen((Screen) null);
+                })
+                .build();
+    }
+
     private static final String CHANCE_NOTE = " These four numbers are compared with each other, so they do not need to add up to 100.";
 
     // ---------------- Screen ----------------
@@ -111,6 +125,18 @@ public final class LivingRainConfigScreen {
               + "With this on, a drizzle gives a lighter sky and lighter shader clouds than a downpour (in shader packs that "
               + "scale their clouds with rain). Roof Drips follows it too. Only affects your own screen, never the server.",
                 c -> c.controlRainLevel, (c, v) -> c.controlRainLevel = v));
+
+        List<Option<?>> messages = new ArrayList<>();
+        messages.add(bool("Weather messages",
+                "Shows a short, atmospheric line whenever the weather changes, such as \"The rain eases up.\" or "
+              + "\"A thunderstorm rolls in.\"",
+                c -> c.weatherMessages, (c, v) -> c.weatherMessages = v));
+        messages.add(numFmt("Message style",
+                "Where the messages appear: briefly above your hotbar, or in the chat window.",
+                0, 1, 1, v -> v == 0 ? "Above hotbar" : "Chat", c -> c.messageStyle, (c, v) -> c.messageStyle = v));
+        messages.add(bool("Wind messages",
+                "Also announce notable changes in the wind (\"The wind rises, driving the rain sideways.\").",
+                c -> c.windMessages, (c, v) -> c.windMessages = v));
 
         List<Option<?>> presets = new ArrayList<>();
         presets.add(presetButton("Gentle", "Mostly drizzle and light rain, calm winds, few surprises."));
@@ -182,11 +208,18 @@ public final class LivingRainConfigScreen {
                 "How far above your head rain is created. Rain fades out near this height.",
                 6, 30, 1, " blocks", c -> c.spawnHeight, (c, v) -> c.spawnHeight = v));
         look.add(flt("Density",
-                "How many drops there are overall. The storm intensity scales this up and down automatically.",
-                0.1f, 3f, 0.05f, false, c -> c.density, (c, v) -> c.density = v));
+                "How many drops there are overall. The storm intensity scales this up and down automatically, so a drizzle "
+              + "always has far fewer drops than a torrential downpour. Raise it for a heavier look.",
+                0.1f, 6f, 0.1f, false, c -> c.density, (c, v) -> c.density = v));
         look.add(numFmt("Particle limit",
-                "The most rain particles alive at once. This is the main performance control: lower it if the game stutters in storms.",
-                200, 12000, 100, v -> String.valueOf(v), c -> c.maxParticles, (c, v) -> c.maxParticles = v));
+                "The most rain particles alive at once. This is the main performance control: lower it if the game stutters "
+              + "in storms. If you raise Density a lot, raise this too, or heavy rain will thin out. "
+              + "Minecraft itself starts discarding particles at around 16,000.",
+                200, 14000, 100, v -> String.valueOf(v), c -> c.maxParticles, (c, v) -> c.maxParticles = v));
+        look.add(flt("Motion blur",
+                "Stretches each drop into a soft streak, longer the faster it moves (gusts stretch drops further), so the rain looks "
+              + "smooth instead of blocky. 0% = short crisp streaks.",
+                0f, 2f, 0.05f, true, c -> c.motionBlur, (c, v) -> c.motionBlur = v));
         look.add(flt("Opacity", "How visible the rain is.",
                 0.1f, 1f, 0.05f, true, c -> c.opacity, (c, v) -> c.opacity = v));
         look.add(flt("Drop size", "Size of the rain streaks and snowflakes.",
@@ -270,6 +303,39 @@ public final class LivingRainConfigScreen {
         }
 
         // ===== Debug =====
+        List<Option<?>> debugStatus = new ArrayList<>();
+        debugStatus.add(LabelOption.createBuilder().line(Component.literal(StormDirector.statusLine())).build());
+        debugStatus.add(LabelOption.createBuilder().line(Component.literal(
+                "Test mode swaps the real weather for one you choose, on your screen only (the server and other players are "
+              + "unaffected, and there is no lightning). It switches itself off whenever you restart the game.")).build());
+
+        List<Option<?>> quick = new ArrayList<>();
+        quick.add(testButton("Test: Clear sky", "Clear weather.", 0, -1));
+        quick.add(testButton("Test: Drizzle", "A fine drizzle.", 1, 0));
+        quick.add(testButton("Test: Light rain", "Steady light rain.", 1, 1));
+        quick.add(testButton("Test: Heavy rain", "Heavy rainfall.", 1, 2));
+        quick.add(testButton("Test: Torrential rain", "A storm-like downpour.", 1, 3));
+        quick.add(testButton("Test: Thunderstorm", "Torrential rain with thunder.", 2, 3));
+        quick.add(ButtonOption.createBuilder()
+                .name(Component.literal("Stop testing (real weather)"))
+                .description(OptionDescription.of(Component.literal("Go back to the weather the world is really having.")))
+                .action((scr, btn) -> {
+                    CFG.testMode = false;
+                    Minecraft.getInstance().gui.setScreen((Screen) null);
+                })
+                .build());
+
+        List<Option<?>> manual = new ArrayList<>();
+        manual.add(bool("Test mode",
+                "Use the weather chosen below instead of the real weather. Applies when you close this screen.",
+                c -> c.testMode, (c, v) -> c.testMode = v));
+        manual.add(numFmt("Test weather", "Clear, rain, or a thunderstorm.", 0, 2, 1,
+                v -> new String[] { "Clear", "Rain", "Thunderstorm" }[v], c -> c.testWeather, (c, v) -> c.testWeather = v));
+        manual.add(numFmt("Test intensity", "Drizzle, light, heavy or torrential rain.", 0, 3, 1,
+                v -> StormDirector.TIER_NAMES[v], c -> c.testTier, (c, v) -> c.testTier = v));
+        manual.add(numFmt("Test wind", "Automatic keeps the normal random wind; the others lock it to one strength.", 0, 4, 1,
+                v -> new String[] { "Automatic", "Calm", "Breezy", "Windy", "Gale" }[v], c -> c.testWind, (c, v) -> c.testWind = v));
+
         List<Option<?>> debug = new ArrayList<>();
         debug.add(bool("Log storm changes",
                 "Writes a short line to the game log (logs/latest.log) whenever a storm starts, changes intensity or ends. "
@@ -279,6 +345,7 @@ public final class LivingRainConfigScreen {
         return YetAnotherConfigLib.createBuilder()
                 .title(Component.literal("Living Rain"))
                 .category(ConfigCategory.createBuilder().name(Component.literal("Storms")).options(general)
+                        .group(OptionGroup.createBuilder().name(Component.literal("Messages")).options(messages).build())
                         .group(OptionGroup.createBuilder().name(Component.literal("Quick presets")).options(presets).build())
                         .group(OptionGroup.createBuilder().name(Component.literal("Rain storms: chance of each intensity")).options(rainChances).build())
                         .group(OptionGroup.createBuilder().name(Component.literal("Thunderstorms: chance of each intensity")).options(thunderChances).build())
@@ -289,7 +356,11 @@ public final class LivingRainConfigScreen {
                         .group(OptionGroup.createBuilder().name(Component.literal("Wind personality chances (rolled each storm)")).options(windChances).build())
                         .build())
                 .category(ConfigCategory.createBuilder().name(Component.literal("Roof Drips")).options(link).build())
-                .category(ConfigCategory.createBuilder().name(Component.literal("Debug")).options(debug).build())
+                .category(ConfigCategory.createBuilder().name(Component.literal("Debug")).options(debugStatus)
+                        .group(OptionGroup.createBuilder().name(Component.literal("Test a weather type (one click)")).options(quick).build())
+                        .group(OptionGroup.createBuilder().name(Component.literal("Test a weather type (choose the details)")).options(manual).build())
+                        .group(OptionGroup.createBuilder().name(Component.literal("Logging")).options(debug).build())
+                        .build())
                 .save(() -> CFG.save())
                 .build()
                 .generateScreen(parent);

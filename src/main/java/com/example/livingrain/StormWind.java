@@ -16,6 +16,8 @@ public final class StormWind {
     public static volatile float z;
     public static volatile float turbulence;
     public static int personality = 1;
+    /** Test mode: -1 = roll normally, 0..3 = always this personality. */
+    public static int forced = -1;
 
     private static double driftPhase, stormDeg, gustAngle, shiftOffset, shiftTarget;
     private static float strCur = 0.8f, gustAmp;
@@ -32,7 +34,7 @@ public final class StormWind {
     static void newStorm(RandomSource rnd, LivingRainConfig cfg, int rainTier, boolean wildcard) {
         stormDeg = rnd.nextDouble() * 360.0;
         rainTierHint = rainTier;
-        pickPersonality(rnd, cfg, wildcard);
+        if (forced >= 0) personality = forced; else pickPersonality(rnd, cfg, wildcard);
         personalityTimer = 20 * (150 + rnd.nextInt(200));
         shiftTicks = 0;
         shiftTarget = 0;
@@ -76,7 +78,9 @@ public final class StormWind {
     static void tick(RandomSource rnd, LivingRainConfig cfg, float thunder) {
         if (!cfg.windEnabled) { x = 0f; z = 0f; turbulence = 0f; return; }
 
-        if (--personalityTimer <= 0) {
+        if (forced >= 0) {
+            personality = forced;
+        } else if (--personalityTimer <= 0) {
             pickPersonality(rnd, cfg, false);
             personalityTimer = 20 * (150 + rnd.nextInt(200));
         }

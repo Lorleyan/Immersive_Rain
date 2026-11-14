@@ -14,7 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 /** All settings. Saved to config/livingrain.json. Plain Java: no config-library classes in here. */
 public class LivingRainConfig {
 
-    private static final int CONFIG_VERSION = 1;
+    private static final int CONFIG_VERSION = 2;
 
     /** null in files written by older versions of the mod. */
     public Integer configVersion;
@@ -26,6 +26,12 @@ public class LivingRainConfig {
     /** Let this mod set the rain level that the sky, vanilla clouds and shader packs read. */
     public boolean controlRainLevel = true;
     public boolean snow = true;
+
+    // ---- Messages ----
+    public boolean weatherMessages = true;
+    /** 0 = action bar (above the hotbar), 1 = chat. */
+    public int messageStyle = 0;
+    public boolean windMessages = true;
 
     // ---- Rain storms: relative chance of each intensity ----
     public int rainDrizzle = 30;
@@ -72,8 +78,10 @@ public class LivingRainConfig {
     // ---- Rain look ----
     public int radius = 22;
     public int spawnHeight = 14;
-    public float density = 1.0f;
-    public int maxParticles = 4000;
+    public float density = 2.2f;
+    public int maxParticles = 9000;
+    /** 0 = crisp short streaks, 1 = long soft streaks. */
+    public float motionBlur = 0.8f;
     public float opacity = 0.8f;
     public float dropSize = 1.0f;
     public float fallSpeed = 1.0f;
@@ -84,6 +92,15 @@ public class LivingRainConfig {
 
     // ---- Debug ----
     public boolean logStorms = true;
+
+    // ---- Weather test mode: deliberately NOT saved (transient), so it is always off after a restart ----
+    public transient boolean testMode = false;
+    /** 0 = clear, 1 = rain, 2 = thunderstorm. */
+    public transient int testWeather = 1;
+    /** 0..3 = drizzle, light, heavy, torrential. */
+    public transient int testTier = 2;
+    /** 0 = automatic, 1..4 = calm, breezy, windy, gale. */
+    public transient int testWind = 0;
 
     // ---------------- Helpers ----------------
     public float[] rainWeights() {
@@ -160,7 +177,8 @@ public class LivingRainConfig {
         gustDuration = cl(gustDuration, 1, 10);
         rainWindInfluence = cl(rainWindInfluence, 0f, 5f);
         radius = cl(radius, 8, 30); spawnHeight = cl(spawnHeight, 6, 30);
-        density = cl(density, 0.1f, 3f); maxParticles = cl(maxParticles, 200, 12000);
+        density = cl(density, 0.1f, 6f); maxParticles = cl(maxParticles, 200, 14000);
+        motionBlur = cl(motionBlur, 0f, 2f); messageStyle = cl(messageStyle, 0, 1);
         opacity = cl(opacity, 0.1f, 1f); dropSize = cl(dropSize, 0.3f, 3f);
         fallSpeed = cl(fallSpeed, 0.3f, 2f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
         rainVolume = cl(rainVolume, 0f, 1.5f);
