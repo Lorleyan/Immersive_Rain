@@ -14,7 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 /** All settings. Saved to config/livingrain.json. Plain Java: no config-library classes in here. */
 public class LivingRainConfig {
 
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 3;
 
     /** null in files written by older versions of the mod. */
     public Integer configVersion;
@@ -80,13 +80,13 @@ public class LivingRainConfig {
     // ---- Rain look ----
     public int radius = 22;
     public int spawnHeight = 14;
-    public float density = 2.2f;
-    public int maxParticles = 9000;
+    public float density = 6.0f;
+    public int maxParticles = 20000;
     /** 0 = crisp short streaks, 1 = long soft streaks. */
     public float motionBlur = 0.8f;
-    public float opacity = 0.8f;
+    public float opacity = 0.5f;
     public float dropSize = 1.0f;
-    public float fallSpeed = 1.0f;
+    public float fallSpeed = 2.0f;
     public float fallSpeedVar = 0.20f;
     public boolean splashes = true;
     public boolean flipSlant = false;
@@ -179,10 +179,10 @@ public class LivingRainConfig {
         gustDuration = cl(gustDuration, 1, 10);
         rainWindInfluence = cl(rainWindInfluence, 0f, 5f);
         radius = cl(radius, 8, 30); spawnHeight = cl(spawnHeight, 6, 30);
-        density = cl(density, 0.1f, 6f); maxParticles = cl(maxParticles, 200, 14000);
+        density = cl(density, 0.1f, 20f); maxParticles = cl(maxParticles, 200, 60000);
         motionBlur = cl(motionBlur, 0f, 2f); messageStyle = cl(messageStyle, 0, 1);
         opacity = cl(opacity, 0.1f, 1f); dropSize = cl(dropSize, 0.3f, 3f);
-        fallSpeed = cl(fallSpeed, 0.3f, 2f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
+        fallSpeed = cl(fallSpeed, 0.3f, 6f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
         rainVolume = cl(rainVolume, 0f, 1.5f);
     }
 
@@ -202,7 +202,15 @@ public class LivingRainConfig {
                 try (Reader r = Files.newBufferedReader(FILE)) {
                     LivingRainConfig c = GSON.fromJson(r, LivingRainConfig.class);
                     if (c != null) {
-                        if (c.configVersion == null || c.configVersion < CONFIG_VERSION) c = new LivingRainConfig();
+                        if (c.configVersion == null || c.configVersion < 2) {
+                            c = new LivingRainConfig();
+                        } else if (c.configVersion < 3) {
+                            // 0.4.0: new default look (faster, denser, fainter rain). Keep every other setting.
+                            c.fallSpeed = 2.0f;
+                            c.density = 6.0f;
+                            c.maxParticles = 20000;
+                            c.opacity = 0.5f;
+                        }
                         c.configVersion = CONFIG_VERSION;
                         c.sanitize();
                         c.save();

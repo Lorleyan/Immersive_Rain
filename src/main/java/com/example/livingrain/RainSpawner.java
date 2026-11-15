@@ -27,6 +27,8 @@ public final class RainSpawner {
     public static float windX, windZ, windTurb;
     public static double killDistSq = 1600.0;
     public static boolean flipSlant, splashes;
+    /** Chance that a drop landing near the player makes a splash (lowered automatically in dense rain). */
+    public static float splashChance = 0.35f;
 
     /** Counts spawner ticks. Particles stamp it so we can tell which ones Minecraft has stopped ticking. */
     public static long clock;
@@ -34,6 +36,8 @@ public final class RainSpawner {
     public static int lastSpawned;
     public static int autoCap = Integer.MAX_VALUE;
     public static int discardedTotal;
+    /** Current rain fall speed in blocks per tick (for /livingrain status). */
+    public static float lastFall;
     private static boolean limitLogged;
     private static int stallTicks;
 
@@ -41,6 +45,14 @@ public final class RainSpawner {
     private static final BlockPos.MutableBlockPos P = new BlockPos.MutableBlockPos();
 
     private RainSpawner() { }
+
+    /**
+     * How fast rain falls, in blocks per tick, BEFORE the user's "Fall speed" multiplier. The heavier the rain, the
+     * faster it falls: torrential rain falls about 3x as fast as a drizzle.
+     */
+    public static float fallCurve(float inten) {
+        return 0.30f + 0.38f * inten + 0.55f * (float) Math.pow(inten, 2.5);
+    }
 
     public static void tick(Minecraft mc) {
         ClientLevel level = mc.level;
@@ -87,14 +99,17 @@ public final class RainSpawner {
         double kill = cfg.radius + 20.0;
         killDistSq = kill * kill;
 
+        float fall = fallCurve(inten) * cfg.fallSpeed;
+        lastFall = fall * StormDirector.speedMul;
+        // The wind push is scaled with the fall speed, so the slant ANGLE looks the same however fast the rain falls.
+        float windScale = fall / (0.30f + 0.38f * Math.max(0.02f, inten));
         float[] w = WindSource.get(cfg);
-        windX = w[0] * cfg.rainWindInfluence;
-        windZ = w[1] * cfg.rainWindInfluence;
+        windX = w[0] * cfg.rainWindInfluence * windScale;
+        windZ = w[1] * cfg.rainWindInfluence * windScale;
         windTurb = w[2];
         if (!Float.isFinite(windX) || !Float.isFinite(windZ)) { windX = 0f; windZ = 0f; }
         if (!Float.isFinite(windTurb)) windTurb = 0f;
         // Even in the strongest gust, rain never goes fully sideways.
-        float fall = (0.30f + 0.38f * inten) * cfg.fallSpeed;
         float maxH = 1.1f * fall;
         float mag = (float) Math.sqrt(windX * windX + windZ * windZ);
         if (mag > maxH && mag > 0f) {
@@ -111,21 +126,26 @@ public final class RainSpawner {
         // flux = density x area x fall speed, so a drop's lifetime does not change how dense the rain looks.
         float dens = 1.6f * (float) Math.pow(inten, 1.6) * StormDirector.densityMul * cfg.density;
         float r = cfg.radius;
-        float vyRain = (0.30f + 0.38f * inten) * cfg.fallSpeed * StormDirector.speedMul;
-        float vySnow = 0.07f * cfg.fallSpeed;
+        float vyRain = fall * StormDirector.speedMul;
+        float vySnow = 0.07f * (0.6f + 0.2f * cfg.fallSpeed);       // snow is slow and does not scale like rain
         float perTick = 0.12f * dens * (float) (Math.PI * r * r) * vyRain;
         if (!Float.isFinite(acc)) acc = 0f;
+        // About 60 splashes per tick near the player is plenty; in dense rain only a small share of landings splash.
+        float nearLandings = perTick * (144f / (r * r));
+        splashChance = Math.min(0.35f, 60f / Math.max(1f, nearLandings));
         acc += Float.isFinite(perTick) ? perTick : 0f;
         int count = (int) acc;
         acc -= count;
-        count = Math.min(count, 1500);
+        count = Math.min(count, 12000);
         int cap = Math.min(cfg.maxParticles, autoCap);
         count = Math.min(count, Math.max(0, cap - RainParticle.live()));
 
         // Motion blur: longer streaks, spread over more length, so each one is a little fainter.
         float stretch = 0.55f + 0.9f * cfg.motionBlur;
         float blurAlpha = (float) Math.min(1.35, 1.0 / Math.sqrt(stretch));
-        float size = (0.14f + 0.36f * inten) * cfg.dropSize * StormDirector.sizeMul * stretch;
+        // Faster drops are smeared over a longer streak (that is what motion blur is), up to twice as long.
+        float lenSpeed = Math.max(0.85f, Math.min(2.0f, (float) Math.sqrt(vyRain / 1.2f)));
+        float size = (0.14f + 0.36f * inten) * cfg.dropSize * StormDirector.sizeMul * stretch * lenSpeed;
         float alpha = (0.22f + 0.33f * inten) * cfg.opacity * blurAlpha;
         double height = cfg.spawnHeight;
 

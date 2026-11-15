@@ -97,6 +97,7 @@ public final class LivingRainCommands {
                     + "  |  vanilla rain: " + (WeatherHooks.shouldHide() ? "hidden" : "shown"));
             say(src, StormDirector.statusLine());
             say(src, String.format("Server weather: rain %.2f, thunder %.2f", StormDirector.rawRain(), StormDirector.rawThunder()));
+            say(src, String.format("Rain falls at %.2f blocks/tick (%.0f blocks/second)", RainSpawner.lastFall, RainSpawner.lastFall * 20f));
             say(src, "Particles alive: " + RainParticle.live() + " (limit " + c.maxParticles
                     + (RainSpawner.autoCap != Integer.MAX_VALUE ? ", Minecraft is capping at ~" + RainSpawner.autoCap : "")
                     + "), created last tick: " + RainSpawner.lastSpawned + ", discarded by Minecraft: " + RainSpawner.discardedTotal);

@@ -177,9 +177,10 @@ public class RainParticle extends SingleQuadParticle {
 
         int top = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(this.x), Mth.floor(this.z));
         if (this.y <= top) {
-            // Landed on a surface (just above the top block) or flew under a roof (well below it).
-            if (!snow && RainSpawner.splashes && top - this.y < 1.2
-                    && dx * dx + dz * dz < 144.0 && this.random.nextFloat() < 0.35f) {
+            // Landed if it crossed the surface during this tick (works however fast it falls); if it was already
+            // below the top block it flew in under a roof, and just disappears.
+            if (!snow && RainSpawner.splashes && this.yo > top
+                    && dx * dx + dz * dz < 144.0 && this.random.nextFloat() < RainSpawner.splashChance) {
                 this.level.addParticle(ParticleTypes.RAIN, this.x, top + 0.05, this.z, 0, 0, 0);
             }
             this.remove();

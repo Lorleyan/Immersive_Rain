@@ -1,4 +1,4 @@
-# Living Rain 0.3.0  (Minecraft 26.3, Fabric)
+# Living Rain 0.4.0  (Minecraft 26.3, Fabric)
 
 Replaces vanilla rain and snow with particle rain that changes from storm to storm and during storms
 (drizzle, light, heavy, torrential), with simulated wind. Client-side only: install it on your own game, no server needed.
@@ -10,6 +10,22 @@ Replaces vanilla rain and snow with particle rain that changes from storm to sto
 3. Put the `.jar` in your `mods` folder next to Fabric API, YACL and Mod Menu (and Roof Drips 1.0.9 for the wind link).
 
 If the build fails, copy the red error text from the build log and send it to me.
+
+## What's new in 0.4.0
+* **Faster rain, and heavier rain falls faster.** Fall speed now depends on storm severity on top of your slider:
+  torrential rain falls about 3x as fast as a drizzle. New default is x2.0 (the old maximum); the slider goes up to x6.0.
+  Drizzle ~16 blocks/s, light ~24, heavy ~34, torrential ~49 at the default.
+* **Much denser by default.** Density default is now 6.0 (the old maximum); slider up to 20. Particle limit default 20,000, slider up to 60,000.
+* **Red warnings.** Density above 6.0, Particle limit above 25,000, Radius above 26 and Rain height above 20 show in red:
+  they cost more performance than the defaults.
+* **Opacity default 50%.**
+* Wind slant keeps the same angle at any fall speed; streaks stretch a little longer when drops are very fast;
+  splashes are rationed in dense rain so they do not flood Minecraft's particle queue.
+* Your existing config is upgraded automatically: only fall speed, density, particle limit and opacity are reset to the new defaults.
+  Everything else you set is kept.
+
+Note: Minecraft may discard particles beyond an internal limit (around 16,000). The mod detects this and stays under it,
+so a Particle limit above that may not add more rain. `/livingrain status` shows whether Minecraft is capping it.
 
 ## What's new in 0.3.0
 * **Rain no longer disappears.** Minecraft silently throws away particles when its internal queue is full; the old particle counter

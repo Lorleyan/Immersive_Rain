@@ -16,9 +16,11 @@ import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /** The in-game settings screen (opened from Mod Menu's Configure button). Built with YACL. */
 public final class LivingRainConfigScreen {
@@ -42,30 +44,56 @@ public final class LivingRainConfigScreen {
 
     private static Option<Float> flt(String name, String tip, float min, float max, float step, boolean pct,
                                      Function<LivingRainConfig, Float> get, BiConsumer<LivingRainConfig, Float> set) {
+        return flt(name, tip, min, max, step, pct, null, get, set);
+    }
+
+    /** warnAbove: values above it are shown in red, to flag a heavier performance cost than the default. */
+    private static Option<Float> flt(String name, String tip, float min, float max, float step, boolean pct, Float warnAbove,
+                                     Function<LivingRainConfig, Float> get, BiConsumer<LivingRainConfig, Float> set) {
         return Option.<Float>createBuilder()
                 .name(Component.literal(name))
                 .description(OptionDescription.of(Component.literal(tip)))
                 .binding(Binding.generic(get.apply(DEF), () -> get.apply(CFG), v -> set.accept(CFG, v)))
                 .controller(opt -> FloatSliderControllerBuilder.create(opt).range(min, max).step(step)
-                        .formatValue(v -> Component.literal(pct ? Math.round(v * 100f) + "%" : String.format("%.2f", v))))
+                        .formatValue(v -> {
+                            MutableComponent c = Component.literal(pct ? Math.round(v * 100f) + "%" : String.format("%.2f", v));
+                            if (warnAbove != null && v > warnAbove) c.withStyle(ChatFormatting.RED);
+                            return c;
+                        }))
                 .build();
     }
 
     private static Option<Integer> numFmt(String name, String tip, int min, int max, int step,
                                           Function<Integer, String> fmt,
                                           Function<LivingRainConfig, Integer> get, BiConsumer<LivingRainConfig, Integer> set) {
+        return numFmt(name, tip, min, max, step, fmt, null, get, set);
+    }
+
+    /** warnAbove: values above it are shown in red, to flag a heavier performance cost than the default. */
+    private static Option<Integer> numFmt(String name, String tip, int min, int max, int step,
+                                          Function<Integer, String> fmt, Integer warnAbove,
+                                          Function<LivingRainConfig, Integer> get, BiConsumer<LivingRainConfig, Integer> set) {
         return Option.<Integer>createBuilder()
                 .name(Component.literal(name))
                 .description(OptionDescription.of(Component.literal(tip)))
                 .binding(Binding.generic(get.apply(DEF), () -> get.apply(CFG), v -> set.accept(CFG, v)))
                 .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(min, max).step(step)
-                        .formatValue(v -> Component.literal(fmt.apply(v))))
+                        .formatValue(v -> {
+                            MutableComponent c = Component.literal(fmt.apply(v));
+                            if (warnAbove != null && v > warnAbove) c.withStyle(ChatFormatting.RED);
+                            return c;
+                        }))
                 .build();
     }
 
     private static Option<Integer> num(String name, String tip, int min, int max, int step, String unit,
                                        Function<LivingRainConfig, Integer> get, BiConsumer<LivingRainConfig, Integer> set) {
         return numFmt(name, tip, min, max, step, v -> v + unit, get, set);
+    }
+
+    private static Option<Integer> numWarn(String name, String tip, int min, int max, int step, String unit, int warnAbove,
+                                           Function<LivingRainConfig, Integer> get, BiConsumer<LivingRainConfig, Integer> set) {
+        return numFmt(name, tip, min, max, step, v -> v + unit, warnAbove, get, set);
     }
 
     /** A relative chance 0..100. The four chances of a group are compared with each other, so they need not add up to 100. */
@@ -205,21 +233,25 @@ public final class LivingRainConfigScreen {
         look.add(bool("Snow in cold biomes",
                 "Particle snow where vanilla would snow. Off = no snow at all while this mod is replacing vanilla weather.",
                 c -> c.snow, (c, v) -> c.snow = v));
-        look.add(num("Radius",
-                "How far around you rain is created (blocks). Bigger looks more like a real storm but costs more performance.",
-                8, 30, 1, " blocks", c -> c.radius, (c, v) -> c.radius = v));
-        look.add(num("Rain height",
-                "How far above your head rain is created. Rain fades out near this height.",
-                6, 30, 1, " blocks", c -> c.spawnHeight, (c, v) -> c.spawnHeight = v));
+        look.add(numWarn("Radius",
+                "How far around you rain is created (blocks). Bigger looks more like a real storm but costs more performance. "
+              + "Shown in red above 26, where the cost climbs quickly.",
+                8, 30, 1, " blocks", 26, c -> c.radius, (c, v) -> c.radius = v));
+        look.add(numWarn("Rain height",
+                "How far above your head rain is created. Rain fades out near this height. "
+              + "Shown in red above 20 (more rain in the air = more cost).",
+                6, 30, 1, " blocks", 20, c -> c.spawnHeight, (c, v) -> c.spawnHeight = v));
         look.add(flt("Density",
                 "How many drops there are overall. The storm intensity scales this up and down automatically, so a drizzle "
-              + "always has far fewer drops than a torrential downpour. Raise it for a heavier look.",
-                0.1f, 6f, 0.1f, false, c -> c.density, (c, v) -> c.density = v));
+              + "always has far fewer drops than a torrential downpour. The default is already heavy. "
+              + "RED = above the default, which costs noticeably more performance. If you raise it, raise the Particle limit too.",
+                0.1f, 20f, 0.1f, false, 6.0f, c -> c.density, (c, v) -> c.density = v));
         look.add(numFmt("Particle limit",
                 "The most rain particles alive at once. This is the main performance control: lower it if the game stutters "
-              + "in storms. If you raise Density a lot, raise this too, or heavy rain will thin out. "
-              + "Minecraft itself starts discarding particles at around 16,000.",
-                200, 14000, 100, v -> String.valueOf(v), c -> c.maxParticles, (c, v) -> c.maxParticles = v));
+              + "in storms. Heavy rain at the default density needs roughly 10,000 to 16,000. RED = above 25,000, which most "
+              + "systems will struggle with. Minecraft may discard particles beyond its own internal limit (around 16,000); the "
+              + "mod detects this automatically and /livingrain status shows it.",
+                200, 60000, 100, v -> String.valueOf(v), 25000, c -> c.maxParticles, (c, v) -> c.maxParticles = v));
         look.add(flt("Motion blur",
                 "Stretches each drop into a soft streak, longer the faster it moves (gusts stretch drops further), so the rain looks "
               + "smooth instead of blocky. 0% = short crisp streaks.",
@@ -228,8 +260,10 @@ public final class LivingRainConfigScreen {
                 0.1f, 1f, 0.05f, true, c -> c.opacity, (c, v) -> c.opacity = v));
         look.add(flt("Drop size", "Size of the rain streaks and snowflakes.",
                 0.3f, 3f, 0.05f, false, c -> c.dropSize, (c, v) -> c.dropSize = v));
-        look.add(flt("Fall speed", "How fast drops fall.",
-                0.3f, 2f, 0.05f, false, c -> c.fallSpeed, (c, v) -> c.fallSpeed = v));
+        look.add(flt("Fall speed",
+                "Base fall speed. Heavier rain automatically falls faster on top of this: at any setting, torrential rain "
+              + "falls about three times as fast as a drizzle. Wind slant keeps the same angle at any speed.",
+                0.3f, 6f, 0.1f, false, c -> c.fallSpeed, (c, v) -> c.fallSpeed = v));
         look.add(flt("Fall speed variance", "How much individual drops differ in speed.",
                 0f, 0.6f, 0.05f, true, c -> c.fallSpeedVar, (c, v) -> c.fallSpeedVar = v));
         look.add(bool("Ground splashes", "Tiny splashes where drops land near you.",
