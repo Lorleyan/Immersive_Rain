@@ -18,8 +18,39 @@ import net.minecraft.world.level.levelgen.Heightmap;
  */
 public class RainParticle extends SingleQuadParticle {
 
-    /** Number of rain/snow particles alive right now (used for the particle cap). */
-    public static int live = 0;
+    /**
+     * Every rain/snow particle we have made and not seen die. We do NOT trust a simple counter: Minecraft keeps
+     * particles in a size-limited queue and silently throws the oldest away when it is full, without telling them.
+     * Instead each particle stamps the current tick when it is ticked; one that stops being ticked is treated as gone.
+     */
+    private static final java.util.ArrayList<RainParticle> ALL = new java.util.ArrayList<>();
+
+    /** Number of rain/snow particles that really are alive and being ticked. */
+    public static int live() { return ALL.size(); }
+
+    public static void clearAll() { ALL.clear(); }
+
+    /**
+     * Forget particles that died or that Minecraft discarded.
+     * @return how many were discarded by Minecraft (stopped being ticked without dying)
+     */
+    public static int prune(long now) {
+        int keep = 0;
+        int discarded = 0;
+        for (int i = 0; i < ALL.size(); i++) {
+            RainParticle p = ALL.get(i);
+            if (p.gone) continue;
+            if (now - p.lastSeen > 3L) {
+                discarded++;
+                p.gone = true;
+                p.remove();
+                continue;
+            }
+            ALL.set(keep++, p);
+        }
+        if (keep < ALL.size()) ALL.subList(keep, ALL.size()).clear();
+        return discarded;
+    }
 
     // Set by the spawner right before addParticle, read once in the constructor.
     public static float pendingSize = 0.3f;
@@ -32,7 +63,8 @@ public class RainParticle extends SingleQuadParticle {
     private final float baseSize;
     private final float baseAlpha;
     private final double refSpeed;
-    private boolean counted = true;
+    private boolean gone;
+    private long lastSeen;
 
     protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow,
                            double vx, double vy, double vz) {
@@ -54,7 +86,8 @@ public class RainParticle extends SingleQuadParticle {
         if (snow) this.setColor(1.0f, 1.0f, 1.0f);
         else this.setColor(0.80f, 0.88f, 1.0f);
         this.setAlpha(0f);          // fades in over the first few ticks
-        live++;
+        this.lastSeen = RainSpawner.clock;
+        ALL.add(this);
     }
 
     @Override
@@ -64,15 +97,13 @@ public class RainParticle extends SingleQuadParticle {
 
     @Override
     public void remove() {
-        if (counted) {
-            counted = false;
-            if (live > 0) live--;
-        }
+        this.gone = true;
         super.remove();
     }
 
     @Override
     public void tick() {
+        this.lastSeen = RainSpawner.clock;
         this.xo = this.x;
         this.yo = this.y;
         this.zo = this.z;

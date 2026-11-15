@@ -1,4 +1,4 @@
-# Living Rain 0.2.0  (Minecraft 26.3, Fabric)
+# Living Rain 0.3.0  (Minecraft 26.3, Fabric)
 
 Replaces vanilla rain and snow with particle rain that changes from storm to storm and during storms
 (drizzle, light, heavy, torrential), with simulated wind. Client-side only: install it on your own game, no server needed.
@@ -11,7 +11,23 @@ Replaces vanilla rain and snow with particle rain that changes from storm to sto
 
 If the build fails, copy the red error text from the build log and send it to me.
 
-## What's new in 0.2.0
+## What's new in 0.3.0
+* **Rain no longer disappears.** Minecraft silently throws away particles when its internal queue is full; the old particle counter
+  never noticed and eventually thought the limit was reached, so it stopped making rain. Particles are now counted by whether they are
+  really still alive, and the mod detects Minecraft's real limit and stays under it.
+* **Vanilla rain is hidden by default** (using the 26.3 weather code, with a safety net if a name is wrong).
+  New option "Show vanilla rain too" (Rain Look tab) to see both.
+* **Chat commands** (see below).
+
+## Commands (type in chat, they only change your own game)
+* `/livingrain start` / `/livingrain stop`  turn Living Rain on / off (stop = vanilla weather fully back)
+* `/livingrain preset gentle|balanced|dramatic|chaotic`
+* `/livingrain weather real|clear|drizzle|light|heavy|torrential|thunder`  test weather on your screen only
+* `/livingrain vanilla on|off`  show/hide vanilla rain
+* `/livingrain status`  prints what the mod is doing: particles alive, limits, which hooks work. **If rain ever stops, run this
+  and send me the output.**
+
+## Earlier changes (0.2.0)
 * Rain streaks now follow the wind correctly from ANY view angle (looking up no longer makes them fall sideways).
 * Much denser rain by default; Density goes up to 6.0 and the Particle limit up to 14,000.
 * Motion blur setting (soft, longer streaks; faster drops in gusts stretch further), soft fade-in/out at the edges.

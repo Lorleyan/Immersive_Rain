@@ -9,14 +9,14 @@ import com.example.livingrain.WeatherHooks;
 
 /**
  * Hides vanilla's rain and snow drawing (the particle rain replaces it).
- * Lives in its own optional mixin config: if Minecraft's class or method names differ,
- * the game still starts and only this part is skipped (the log says so).
+ * Lives in its own optional mixin config: if Minecraft's names differ, the game still starts and the
+ * fallback in StormDirector hides vanilla rain instead. "/livingrain status" shows which layer is working.
  */
 @Mixin(targets = "net.minecraft.client.renderer.WeatherEffectRenderer")
 public abstract class WeatherRenderMixin {
 
-    @Inject(method = { "render", "extractRenderState" }, at = @At("HEAD"), cancellable = true, require = 0)
-    private void livingrain$hideVanillaRain(CallbackInfo ci) {
-        if (WeatherHooks.shouldCancel()) ci.cancel();
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true, require = 0)
+    private void livingrain$hideRender(CallbackInfo ci) {
+        if (WeatherHooks.shouldCancel(0)) ci.cancel();
     }
 }

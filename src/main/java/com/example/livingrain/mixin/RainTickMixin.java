@@ -7,12 +7,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.example.livingrain.WeatherHooks;
 
-/** Stops vanilla's rain splashes and rain sounds (this mod makes its own). Optional, like WeatherRenderMixin. */
+/** Older Minecraft versions: vanilla's splashes and rain sounds came from WeatherEffectRenderer.tickRainParticles. */
 @Mixin(targets = "net.minecraft.client.renderer.WeatherEffectRenderer")
 public abstract class RainTickMixin {
 
     @Inject(method = "tickRainParticles", at = @At("HEAD"), cancellable = true, require = 0)
     private void livingrain$noVanillaSplashes(CallbackInfo ci) {
-        if (WeatherHooks.shouldCancel()) ci.cancel();
+        if (WeatherHooks.shouldCancel(3)) ci.cancel();
     }
 }

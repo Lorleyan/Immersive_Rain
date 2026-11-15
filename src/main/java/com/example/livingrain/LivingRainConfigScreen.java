@@ -198,6 +198,10 @@ public final class LivingRainConfigScreen {
                 "Replaces vanilla rain and snow with particles. Turn off to see vanilla's rain again (the storm levels still apply). "
               + "Tip: keep Minecraft's Particles setting on 'All', otherwise some drops are skipped.",
                 c -> c.particleRain, (c, v) -> c.particleRain = v));
+        look.add(bool("Show vanilla rain too",
+                "Off (default): vanilla Minecraft's own rain and snow are hidden, and only this mod's particles show. "
+              + "On: both are shown together. Only matters while 'Particle rain and snow' is on.",
+                c -> c.showVanillaRain, (c, v) -> c.showVanillaRain = v));
         look.add(bool("Snow in cold biomes",
                 "Particle snow where vanilla would snow. Off = no snow at all while this mod is replacing vanilla weather.",
                 c -> c.snow, (c, v) -> c.snow = v));

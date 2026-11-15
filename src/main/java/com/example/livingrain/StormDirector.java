@@ -50,8 +50,35 @@ public final class StormDirector {
     /** What the mixin should return for getRainLevel(partialTick), or null to leave vanilla's answer alone. */
     public static Float hookValue(float partialTick) {
         if (!Float.isNaN(probe)) return probe;
-        if (bypass || !controlling) return null;
+        if (bypass) return null;
+        // Safety net: if a weather mixin is not working, make vanilla's own weather code see "no rain" instead.
+        if (worldTicks > 100 && WeatherHooks.shouldHide()) {
+            int need = WeatherHooks.drawHits() == 0 ? 1 : 0;
+            if (WeatherHooks.tickHits() == 0) need |= 2;
+            if (need != 0) {
+                int caller = vanillaWeatherCaller();
+                if ((caller == 1 && (need & 1) != 0) || (caller == 2 && (need & 2) != 0)) {
+                    WeatherHooks.fallbackHits++;
+                    return 0f;
+                }
+            }
+        }
+        if (!controlling) return null;
         return Mth.lerp(partialTick, prevRain, curRain);
+    }
+
+    /** 1 = asked by vanilla's rain drawing, 2 = by its splash/sound code, 0 = by anything else. */
+    private static int vanillaWeatherCaller() {
+        return StackWalker.getInstance().walk(frames -> {
+            java.util.Iterator<StackWalker.StackFrame> it = frames.limit(10).iterator();
+            while (it.hasNext()) {
+                StackWalker.StackFrame f = it.next();
+                String m = f.getMethodName();
+                if (m.equals("tickWeatherEffects") || m.equals("tickRainParticles")) return 2;
+                if (f.getClassName().endsWith("WeatherEffectRenderer")) return 1;
+            }
+            return 0;
+        });
     }
 
     /** Same for getThunderLevel. Only used in test mode; otherwise vanilla's thunder (scaled by our rain level) applies. */
@@ -66,6 +93,10 @@ public final class StormDirector {
     public static boolean thunderOn() { return thunderOn; }
     public static boolean hookWorks() { return hookOk; }
     public static String tierName() { return TIER_NAMES[tier]; }
+    public static float rawRain() { return rawRain; }
+    public static float rawThunder() { return rawThunder; }
+    public static int worldTicks() { return worldTicks; }
+    public static boolean testActive() { return testActive; }
 
     /** One line describing the current weather, for the Debug tab. */
     public static String statusLine() {
@@ -82,7 +113,7 @@ public final class StormDirector {
         stormOn = false; thunderOn = false; controlling = false; testActive = false; tapering = false;
         eventTicks = 0; eventOffset = 0f; stormAge = 0; worldTicks = 0; lastWind = -1;
         lastLevel = null;
-        RainParticle.live = 0;       // Minecraft discards particles on world change without telling them
+        RainParticle.clearAll();     // Minecraft discards particles on world change without telling them
         StormWind.forced = -1;
         StormWind.reset();
         WeatherMessages.resetCooldown();
@@ -103,9 +134,10 @@ public final class StormDirector {
         worldTicks++;
         clock++;
         checkHook(level);
-        if (worldTicks == 400 && cfg.particleRain && WeatherHooks.hits == 0) {
-            LOG.warn("[livingrain] The vanilla weather renderer was never intercepted. Vanilla rain may still be visible "
-                    + "next to the particle rain. Please send this log file to the mod author.");
+        if (worldTicks == 400 && WeatherHooks.shouldHide() && (WeatherHooks.drawHits() == 0 || WeatherHooks.tickHits() == 0)) {
+            LOG.warn("[livingrain] Some vanilla weather hooks never fired (draw hits: {}, splash/sound hits: {}). "
+                    + "Using the fallback method to hide vanilla rain. Run /livingrain status and send me the result.",
+                    WeatherHooks.drawHits(), WeatherHooks.tickHits());
         }
 
         boolean test = cfg.testMode;

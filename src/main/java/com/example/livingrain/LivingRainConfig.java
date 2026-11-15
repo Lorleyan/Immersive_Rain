@@ -23,6 +23,8 @@ public class LivingRainConfig {
     public boolean enabled = true;
     /** Replace vanilla rain/snow with particles. */
     public boolean particleRain = true;
+    /** Also keep vanilla's own rain visible. Off by default: the particle rain replaces it. */
+    public boolean showVanillaRain = false;
     /** Let this mod set the rain level that the sky, vanilla clouds and shader packs read. */
     public boolean controlRainLevel = true;
     public boolean snow = true;

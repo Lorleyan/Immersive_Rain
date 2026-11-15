@@ -28,6 +28,15 @@ public final class RainSpawner {
     public static double killDistSq = 1600.0;
     public static boolean flipSlant, splashes;
 
+    /** Counts spawner ticks. Particles stamp it so we can tell which ones Minecraft has stopped ticking. */
+    public static long clock;
+    /** Particles created on the last tick, and the lowest limit Minecraft has been seen to enforce (for /livingrain status). */
+    public static int lastSpawned;
+    public static int autoCap = Integer.MAX_VALUE;
+    public static int discardedTotal;
+    private static boolean limitLogged;
+    private static int stallTicks;
+
     private static float acc;
     private static final BlockPos.MutableBlockPos P = new BlockPos.MutableBlockPos();
 
@@ -38,6 +47,23 @@ public final class RainSpawner {
         LocalPlayer player = mc.player;
         LivingRainConfig cfg = LivingRainConfig.get();
         if (level == null || player == null || !cfg.enabled || mc.isPaused()) return;
+
+        clock++;
+        lastSpawned = 0;
+        // Minecraft silently throws particles away when its own queue is full. Notice that, and stay below it.
+        int discarded = RainParticle.prune(clock);
+        if (discarded > 2) {
+            discardedTotal += discarded;
+            autoCap = Math.max(500, RainParticle.live());
+            if (!limitLogged) {
+                limitLogged = true;
+                org.slf4j.LoggerFactory.getLogger("livingrain").warn(
+                        "[livingrain] Minecraft is discarding particles at about {}. Limiting rain to that automatically.", autoCap);
+            }
+        } else if (autoCap != Integer.MAX_VALUE) {
+            autoCap += 2;                                  // slowly test whether more fits again
+            if (autoCap >= cfg.maxParticles) autoCap = Integer.MAX_VALUE;
+        }
 
         float inten = StormDirector.intensity();
         Vec3 eye = player.getEyePosition();
@@ -65,6 +91,8 @@ public final class RainSpawner {
         windX = w[0] * cfg.rainWindInfluence;
         windZ = w[1] * cfg.rainWindInfluence;
         windTurb = w[2];
+        if (!Float.isFinite(windX) || !Float.isFinite(windZ)) { windX = 0f; windZ = 0f; }
+        if (!Float.isFinite(windTurb)) windTurb = 0f;
         // Even in the strongest gust, rain never goes fully sideways.
         float fall = (0.30f + 0.38f * inten) * cfg.fallSpeed;
         float maxH = 1.1f * fall;
@@ -74,7 +102,7 @@ public final class RainSpawner {
             windZ *= maxH / mag;
         }
 
-        if (!cfg.particleRain || inten < 0.02f) { acc = 0f; return; }
+        if (!Float.isFinite(inten) || !cfg.particleRain || inten < 0.02f) { acc = 0f; return; }
 
         RandomSource rnd = level.getRandom();
         int seaLevel = level.getSeaLevel();
@@ -86,11 +114,13 @@ public final class RainSpawner {
         float vyRain = (0.30f + 0.38f * inten) * cfg.fallSpeed * StormDirector.speedMul;
         float vySnow = 0.07f * cfg.fallSpeed;
         float perTick = 0.12f * dens * (float) (Math.PI * r * r) * vyRain;
-        acc += perTick;
+        if (!Float.isFinite(acc)) acc = 0f;
+        acc += Float.isFinite(perTick) ? perTick : 0f;
         int count = (int) acc;
         acc -= count;
         count = Math.min(count, 1500);
-        count = Math.min(count, Math.max(0, cfg.maxParticles - RainParticle.live));
+        int cap = Math.min(cfg.maxParticles, autoCap);
+        count = Math.min(count, Math.max(0, cap - RainParticle.live()));
 
         // Motion blur: longer streaks, spread over more length, so each one is a little fainter.
         float stretch = 0.55f + 0.9f * cfg.motionBlur;
@@ -128,12 +158,27 @@ public final class RainSpawner {
                 RainParticle.pendingWindMul = 0.8f + rnd.nextFloat() * 0.4f;
                 double vs = vySnow * (0.7f + rnd.nextFloat() * 0.6f);
                 level.addParticle(LivingRainMod.SNOW, sx, ySpawn, sz, windX, -vs, windZ);
+                lastSpawned++;
             } else {
                 RainParticle.pendingSize = size * (0.85f + rnd.nextFloat() * 0.3f);
                 RainParticle.pendingAlpha = alpha * (0.8f + rnd.nextFloat() * 0.4f);
                 RainParticle.pendingWindMul = 0.9f + rnd.nextFloat() * 0.2f;
                 level.addParticle(LivingRainMod.RAIN, sx, ySpawn, sz, windX, -vy, windZ);
+                lastSpawned++;
             }
+        }
+
+        // If a storm is running but not a single particle exists for 5 seconds, say exactly why in the log.
+        if (lastSpawned == 0 && RainParticle.live() == 0 && inten > 0.3f) {
+            stallTicks++;
+            if (stallTicks == 100 || stallTicks % 1200 == 0) {
+                org.slf4j.LoggerFactory.getLogger("livingrain").warn(
+                        "[livingrain] Storm is active but no rain particles exist. intensity={} perTick={} candidates={} cap={} autoCap={} "
+                      + "wind=({}, {}) radius={} paused={} Please send this line to the mod author.",
+                        inten, perTick, count, cap, autoCap, windX, windZ, cfg.radius, mc.isPaused());
+            }
+        } else {
+            stallTicks = 0;
         }
 
         playSounds(level, cfg, rnd, inten, seaLevel);
