@@ -1,4 +1,4 @@
-# Living Rain 0.4.0  (Minecraft 26.3, Fabric)
+# Living Rain 0.6.0  (Minecraft 26.3, Fabric)
 
 Replaces vanilla rain and snow with particle rain that changes from storm to storm and during storms
 (drizzle, light, heavy, torrential), with simulated wind. Client-side only: install it on your own game, no server needed.
@@ -10,6 +10,29 @@ Replaces vanilla rain and snow with particle rain that changes from storm to sto
 3. Put the `.jar` in your `mods` folder next to Fabric API, YACL and Mod Menu (and Roof Drips 1.0.9 for the wind link).
 
 If the build fails, copy the red error text from the build log and send it to me.
+
+## What's new in 0.6.0 (needs Roof Drips 1.0.10 for the new part)
+* **Roof Drips drip amount follows the rain's severity.** Few drips in a drizzle, more in a downpour, the most in a thunderstorm.
+  Settings in Mod Menu > Living Rain > Configure > Roof Drips tab: "Scale Roof Drips with rain severity" (on/off) and
+  "Drip amount: drizzle / torrential rain / thunderstorm" (defaults 20% / 100% / 130% of Roof Drips' own density setting;
+  light and heavy rain are blended evenly in between).
+* **Off = Roof Drips behaves exactly as it does without Living Rain** (full drips whenever it rains).
+  Without Living Rain installed, Roof Drips never changes: it keeps using its own settings.
+* Commands: `/livingrain drips on|off`; `/livingrain status` shows the rain level being sent to Roof Drips.
+
+| Living Rain | Roof Drips 1.0.9 | Roof Drips 1.0.10 |
+|---|---|---|
+| 0.6.0 | shared wind works; drip scaling not available | everything works |
+| 0.5.0 or older | shared wind works | shared wind works |
+
+## What's new in 0.5.0
+* **Drop size now shrinks as rain gets heavier.** Two settings (both capped at 2.0): "Drop size: drizzle" (default 1.5) and
+  "Drop size: thunderstorm" (default 0.5). Light and heavy rain are blended evenly between them:
+  drizzle 1.5, light ~1.17, heavy ~0.83, torrential 0.5, thunderstorm 0.5. The old single slider is now "Snowflake size".
+* **More ground splashes in heavier rain**, most during a thunderstorm, plus a "Splash amount" slider (red above 2.0).
+* **See rain through windows (experimental)** in the Rain Look tab: for shader packs that hide rain behind glass.
+  Draws rain in a different way (thin hard-edged lines). Off by default.
+* `/livingrain status` now also shows the current drop-size multiplier and splash target.
 
 ## What's new in 0.4.0
 * **Faster rain, and heavier rain falls faster.** Fall speed now depends on storm severity on top of your slider:

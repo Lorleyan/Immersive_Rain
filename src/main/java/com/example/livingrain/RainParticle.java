@@ -57,7 +57,22 @@ public class RainParticle extends SingleQuadParticle {
     public static float pendingAlpha = 0.5f;
     public static float pendingWindMul = 1f;
 
+    /**
+     * Minecraft's "opaque" particle layer, if this version has one (looked up by name so a missing one cannot break the build).
+     * Opaque particles are drawn BEFORE translucent glass, so they stay visible through windows when a shader pack is on.
+     */
+    private static final SingleQuadParticle.Layer OPAQUE_LAYER = findOpaqueLayer();
+
+    private static SingleQuadParticle.Layer findOpaqueLayer() {
+        try {
+            return (SingleQuadParticle.Layer) SingleQuadParticle.Layer.class.getField("OPAQUE").get(null);
+        } catch (Throwable t) {
+            return SingleQuadParticle.Layer.TRANSLUCENT;
+        }
+    }
+
     private final boolean snow;
+    private final boolean solid;
     private final float windMul;
     private final float phase;
     private final float baseSize;
@@ -66,10 +81,11 @@ public class RainParticle extends SingleQuadParticle {
     private boolean gone;
     private long lastSeen;
 
-    protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow,
+    protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow, boolean solid,
                            double vx, double vy, double vz) {
         super(level, x, y, z, sprites.first());
         this.snow = snow;
+        this.solid = solid;
         this.windMul = pendingWindMul;
         this.xd = vx;
         this.yd = vy;
@@ -92,7 +108,7 @@ public class RainParticle extends SingleQuadParticle {
 
     @Override
     public SingleQuadParticle.Layer getLayer() {
-        return SingleQuadParticle.Layer.TRANSLUCENT;
+        return solid ? OPAQUE_LAYER : SingleQuadParticle.Layer.TRANSLUCENT;
     }
 
     @Override
@@ -194,7 +210,19 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, false, vx, vy, vz);
+        }
+    }
+
+    /** Rain that stays visible behind glass with shader packs (hard-edged, because opaque particles cannot blend). */
+    public static class SolidRainProvider implements ParticleProvider<SimpleParticleType> {
+        private final SpriteSet sprites;
+        public SolidRainProvider(SpriteSet sprites) { this.sprites = sprites; }
+
+        @Override
+        public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
+                                       double vx, double vy, double vz, RandomSource random) {
+            return new RainParticle(level, x, y, z, sprites, false, true, vx, vy, vz);
         }
     }
 
@@ -205,7 +233,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, true, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, true, false, vx, vy, vz);
         }
     }
 }

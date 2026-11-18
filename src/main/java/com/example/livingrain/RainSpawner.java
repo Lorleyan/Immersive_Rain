@@ -38,6 +38,8 @@ public final class RainSpawner {
     public static int discardedTotal;
     /** Current rain fall speed in blocks per tick (for /livingrain status). */
     public static float lastFall;
+    /** Current drop-size multiplier and splash target per tick (for /livingrain status). */
+    public static float lastSizeMult, lastSplashTarget;
     private static boolean limitLogged;
     private static int stallTicks;
 
@@ -45,6 +47,18 @@ public final class RainSpawner {
     private static final BlockPos.MutableBlockPos P = new BlockPos.MutableBlockPos();
 
     private RainSpawner() { }
+
+    /**
+     * Rain drop size multiplier for the current weather: big drops in light rain, smaller ones as rain gets heavier.
+     * Drizzle uses "Drop size: drizzle", torrential rain uses "Drop size: thunderstorm", and light and heavy rain are blended
+     * evenly in between. During any thunderstorm the size eases to the thunderstorm size (a few seconds after thunder starts).
+     */
+    public static float sizeMultiplier(float inten, LivingRainConfig cfg) {
+        float t = Math.max(0f, Math.min(1f, (inten - 0.25f) / 0.75f));
+        float rainSize = cfg.dropSizeDrizzle + (cfg.dropSizeThunder - cfg.dropSizeDrizzle) * t;
+        float tb = StormDirector.thunderBlend();
+        return rainSize + (cfg.dropSizeThunder - rainSize) * tb;
+    }
 
     /**
      * How fast rain falls, in blocks per tick, BEFORE the user's "Fall speed" multiplier. The heavier the rain, the
@@ -130,9 +144,11 @@ public final class RainSpawner {
         float vySnow = 0.07f * (0.6f + 0.2f * cfg.fallSpeed);       // snow is slow and does not scale like rain
         float perTick = 0.12f * dens * (float) (Math.PI * r * r) * vyRain;
         if (!Float.isFinite(acc)) acc = 0f;
-        // About 60 splashes per tick near the player is plenty; in dense rain only a small share of landings splash.
+        // Splashes near the player per tick: few in a drizzle, many in a downpour, the most in a thunderstorm.
+        // (Only drops landing within 12 blocks splash, so the chance is the target divided by how many land there.)
         float nearLandings = perTick * (144f / (r * r));
-        splashChance = Math.min(0.35f, 60f / Math.max(1f, nearLandings));
+        lastSplashTarget = (10f + 140f * inten * inten) * (1f + 0.5f * StormDirector.thunderBlend()) * cfg.splashAmount;
+        splashChance = Math.min(0.7f, lastSplashTarget / Math.max(1f, nearLandings));
         acc += Float.isFinite(perTick) ? perTick : 0f;
         int count = (int) acc;
         acc -= count;
@@ -145,7 +161,9 @@ public final class RainSpawner {
         float blurAlpha = (float) Math.min(1.35, 1.0 / Math.sqrt(stretch));
         // Faster drops are smeared over a longer streak (that is what motion blur is), up to twice as long.
         float lenSpeed = Math.max(0.85f, Math.min(2.0f, (float) Math.sqrt(vyRain / 1.2f)));
-        float size = (0.14f + 0.36f * inten) * cfg.dropSize * StormDirector.sizeMul * stretch * lenSpeed;
+        lastSizeMult = sizeMultiplier(inten, cfg);
+        net.minecraft.core.particles.SimpleParticleType rainType = cfg.seeThroughWindows ? LivingRainMod.RAIN_SOLID : LivingRainMod.RAIN;
+        float size = (0.14f + 0.36f * inten) * lastSizeMult * StormDirector.sizeMul * stretch * lenSpeed;
         float alpha = (0.22f + 0.33f * inten) * cfg.opacity * blurAlpha;
         double height = cfg.spawnHeight;
 
@@ -183,7 +201,7 @@ public final class RainSpawner {
                 RainParticle.pendingSize = size * (0.85f + rnd.nextFloat() * 0.3f);
                 RainParticle.pendingAlpha = alpha * (0.8f + rnd.nextFloat() * 0.4f);
                 RainParticle.pendingWindMul = 0.9f + rnd.nextFloat() * 0.2f;
-                level.addParticle(LivingRainMod.RAIN, sx, ySpawn, sz, windX, -vy, windZ);
+                level.addParticle(rainType, sx, ySpawn, sz, windX, -vy, windZ);
                 lastSpawned++;
             }
         }

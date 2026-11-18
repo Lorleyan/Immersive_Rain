@@ -12,7 +12,7 @@ public final class RoofDripsLink {
 
     private static Boolean present;
     private static boolean inited;
-    private static boolean overrideSupported;
+    private static boolean overrideSupported, rainScalingSupported;
     private static Field fActive, fX, fZ;
     private static final float[] OUT = new float[2];
 
@@ -27,6 +27,12 @@ public final class RoofDripsLink {
     public static boolean supportsOverride() {
         init();
         return overrideSupported;
+    }
+
+    /** True if the installed Roof Drips can take a rain level from this mod (1.0.10 or newer). */
+    public static boolean supportsRainScaling() {
+        init();
+        return rainScalingSupported;
     }
 
     /** Roof Drips' current wind as {x, z} in blocks per tick, or null if it has none right now. */
@@ -52,6 +58,12 @@ public final class RoofDripsLink {
             fActive = wind.getField("active");
             fX = wind.getField("x");
             fZ = wind.getField("z");
+            try {
+                wind.getField("rainOverridden");
+                rainScalingSupported = true;
+            } catch (NoSuchFieldException e) {
+                rainScalingSupported = false;
+            }
         } catch (Throwable t) {
             fActive = null; fX = null; fZ = null;
         }

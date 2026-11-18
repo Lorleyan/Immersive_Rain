@@ -89,6 +89,23 @@ public final class LivingRainCommands {
                     return 1;
                 })));
 
+        // ---- roof drips scaling ----
+        root.then(ClientCommands.literal("drips")
+                .then(ClientCommands.literal("on").executes(ctx -> {
+                    LivingRainConfig c = LivingRainConfig.get();
+                    c.dripScaling = true;
+                    c.save();
+                    say(ctx.getSource(), "Roof Drips drip amounts now follow the rain's severity.");
+                    return 1;
+                }))
+                .then(ClientCommands.literal("off").executes(ctx -> {
+                    LivingRainConfig c = LivingRainConfig.get();
+                    c.dripScaling = false;
+                    c.save();
+                    say(ctx.getSource(), "Roof Drips ignores rain severity (behaves as it does without Living Rain).");
+                    return 1;
+                })));
+
         // ---- status ----
         root.then(ClientCommands.literal("status").executes(ctx -> {
             FabricClientCommandSource src = ctx.getSource();
@@ -98,9 +115,16 @@ public final class LivingRainCommands {
             say(src, StormDirector.statusLine());
             say(src, String.format("Server weather: rain %.2f, thunder %.2f", StormDirector.rawRain(), StormDirector.rawThunder()));
             say(src, String.format("Rain falls at %.2f blocks/tick (%.0f blocks/second)", RainSpawner.lastFall, RainSpawner.lastFall * 20f));
+            say(src, String.format("Drop size multiplier now: x%.2f   |   splash target: %.0f per tick   |   see-through rain: %s",
+                    RainSpawner.lastSizeMult, RainSpawner.lastSplashTarget, c.seeThroughWindows ? "on" : "off"));
             say(src, "Particles alive: " + RainParticle.live() + " (limit " + c.maxParticles
                     + (RainSpawner.autoCap != Integer.MAX_VALUE ? ", Minecraft is capping at ~" + RainSpawner.autoCap : "")
                     + "), created last tick: " + RainSpawner.lastSpawned + ", discarded by Minecraft: " + RainSpawner.discardedTotal);
+            say(src, "Roof Drips: " + (!RoofDripsLink.present() ? "not installed"
+                    : (RoofDripsLink.supportsRainScaling() ? "1.0.10+" : "older version (no drip scaling)")
+                    + ", wind override " + (c.overrideRoofDrips ? "on" : "off")
+                    + ", drip scaling " + (c.dripScaling ? "on" : "off")
+                    + String.format(", rain level sent to it: %.2f", StormDirector.dripLevel(c))));
             say(src, "Sky/shader rain-level hook: " + (StormDirector.hookWorks() ? "working" : "NOT working"));
             say(src, "Hiding vanilla rain: draw hooks " + WeatherHooks.drawHits() + " hits, splash/sound hooks "
                     + WeatherHooks.tickHits() + " hits, fallback used " + WeatherHooks.fallbackHits + " times");

@@ -11,12 +11,15 @@ import net.minecraft.resources.Identifier;
 public class LivingRainMod implements ModInitializer {
 
     public static final SimpleParticleType RAIN = FabricParticleTypes.simple();
+    public static final SimpleParticleType RAIN_SOLID = FabricParticleTypes.simple();
     public static final SimpleParticleType SNOW = FabricParticleTypes.simple();
 
     @Override
     public void onInitialize() {
         Registry.register(BuiltInRegistries.PARTICLE_TYPE,
                 Identifier.fromNamespaceAndPath("livingrain", "rain_streak"), RAIN);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE,
+                Identifier.fromNamespaceAndPath("livingrain", "rain_streak_solid"), RAIN_SOLID);
         Registry.register(BuiltInRegistries.PARTICLE_TYPE,
                 Identifier.fromNamespaceAndPath("livingrain", "snow_flake"), SNOW);
     }

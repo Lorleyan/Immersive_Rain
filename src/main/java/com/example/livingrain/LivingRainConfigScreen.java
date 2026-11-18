@@ -258,8 +258,16 @@ public final class LivingRainConfigScreen {
                 0f, 2f, 0.05f, true, c -> c.motionBlur, (c, v) -> c.motionBlur = v));
         look.add(flt("Opacity", "How visible the rain is.",
                 0.1f, 1f, 0.05f, true, c -> c.opacity, (c, v) -> c.opacity = v));
-        look.add(flt("Drop size", "Size of the rain streaks and snowflakes.",
-                0.3f, 3f, 0.05f, false, c -> c.dropSize, (c, v) -> c.dropSize = v));
+        look.add(flt("Drop size: drizzle",
+                "Size of the drops in the lightest rain. Drop size is blended automatically between this and the thunderstorm "
+              + "size below, so light rain gets bigger drops and heavy rain gets slightly smaller ones.",
+                0.3f, 2f, 0.05f, false, c -> c.dropSizeDrizzle, (c, v) -> c.dropSizeDrizzle = v));
+        look.add(flt("Drop size: thunderstorm",
+                "Size of the drops during a thunderstorm and in torrential rain (the smallest). Light and heavy rain are "
+              + "blended evenly between the drizzle size and this one.",
+                0.3f, 2f, 0.05f, false, c -> c.dropSizeThunder, (c, v) -> c.dropSizeThunder = v));
+        look.add(flt("Snowflake size", "Size of snowflakes.",
+                0.3f, 2f, 0.05f, false, c -> c.dropSize, (c, v) -> c.dropSize = v));
         look.add(flt("Fall speed",
                 "Base fall speed. Heavier rain automatically falls faster on top of this: at any setting, torrential rain "
               + "falls about three times as fast as a drizzle. Wind slant keeps the same angle at any speed.",
@@ -268,6 +276,15 @@ public final class LivingRainConfigScreen {
                 0f, 0.6f, 0.05f, true, c -> c.fallSpeedVar, (c, v) -> c.fallSpeedVar = v));
         look.add(bool("Ground splashes", "Tiny splashes where drops land near you.",
                 c -> c.splashes, (c, v) -> c.splashes = v));
+        look.add(flt("Splash amount",
+                "How many ground splashes there are. They also scale with the weather automatically: few in a drizzle, many in a "
+              + "downpour, the most in a thunderstorm. RED = above 2.0, which adds a lot of extra particles.",
+                0f, 4f, 0.1f, false, 2.0f, c -> c.splashAmount, (c, v) -> c.splashAmount = v));
+        look.add(bool("See rain through windows (experimental)",
+                "Shader packs draw glass in a way that can hide ordinary rain behind windows. Turning this on draws the rain in a "
+              + "different way that stays visible through glass, but the streaks become thin, hard-edged lines (no soft blur, "
+              + "and Opacity makes them thinner rather than fainter). Only worth trying if you use a shader pack and see this problem.",
+                c -> c.seeThroughWindows, (c, v) -> c.seeThroughWindows = v));
         look.add(flt("Rain volume",
                 "Volume of the rain sound. Also follows Minecraft's Weather volume slider. Gets louder with heavier rain.",
                 0f, 1.5f, 0.05f, true, c -> c.rainVolume, (c, v) -> c.rainVolume = v));
@@ -335,6 +352,28 @@ public final class LivingRainConfigScreen {
                     "On: this mod's wind controls both. Off: Roof Drips keeps its own wind, and the rain here follows "
                   + "Roof Drips' wind instead.",
                     c -> c.overrideRoofDrips, (c, v) -> c.overrideRoofDrips = v));
+            if (!RoofDripsLink.supportsRainScaling()) {
+                link.add(LabelOption.createBuilder().line(Component.literal(
+                        "The drip-amount settings below need Roof Drips 1.0.10 or newer. Until you update it, "
+                      + "Roof Drips uses its own drip amounts.")).build());
+            }
+            link.add(bool("Scale Roof Drips with rain severity",
+                    "On: Roof Drips makes fewer drips in a drizzle and more in a downpour, following this mod's storm. Roof Drips' own "
+                  + "density settings become the amounts for a full downpour. Off: Roof Drips ignores the storm's severity and "
+                  + "behaves exactly as it does without this mod (full drips whenever it rains).",
+                    c -> c.dripScaling, (c, v) -> c.dripScaling = v));
+            link.add(flt("Drip amount: drizzle",
+                    "How many drips there are in the lightest rain, as a share of Roof Drips' own density setting. Light and heavy "
+                  + "rain are blended evenly between this and the torrential amount.",
+                    0f, 2f, 0.05f, true, c -> c.dripDrizzle, (c, v) -> c.dripDrizzle = v));
+            link.add(flt("Drip amount: torrential rain",
+                    "How many drips there are in torrential rain, as a share of Roof Drips' own density setting. 100% = exactly "
+                  + "what you set in Roof Drips.",
+                    0f, 2f, 0.05f, true, c -> c.dripTorrential, (c, v) -> c.dripTorrential = v));
+            link.add(flt("Drip amount: thunderstorm",
+                    "How many drips there are during a thunderstorm. Eases in a few seconds after thunder starts. Above 100% "
+                  + "means more than your Roof Drips setting.",
+                    0f, 2f, 0.05f, true, c -> c.dripThunder, (c, v) -> c.dripThunder = v));
         } else {
             link.add(LabelOption.createBuilder().line(Component.literal(
                     "Roof Drips is not installed. If you install it, this page lets this mod's wind control Roof Drips' droplets too.")).build());

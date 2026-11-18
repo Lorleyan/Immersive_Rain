@@ -12,6 +12,7 @@ public class LivingRainClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ParticleProviderRegistry.getInstance().register(LivingRainMod.RAIN, RainParticle.RainProvider::new);
+        ParticleProviderRegistry.getInstance().register(LivingRainMod.RAIN_SOLID, RainParticle.SolidRainProvider::new);
         ParticleProviderRegistry.getInstance().register(LivingRainMod.SNOW, RainParticle.SnowProvider::new);
         ClientTickEvents.END_CLIENT_TICK.register(LivingRainClient::onTick);
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> LivingRainCommands.register(dispatcher));
