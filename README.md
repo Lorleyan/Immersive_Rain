@@ -1,4 +1,4 @@
-# Living Rain 0.6.0  (Minecraft 26.3, Fabric)
+# Living Rain 0.7.0  (Minecraft 26.3, Fabric)
 
 Replaces vanilla rain and snow with particle rain that changes from storm to storm and during storms
 (drizzle, light, heavy, torrential), with simulated wind. Client-side only: install it on your own game, no server needed.
@@ -10,6 +10,14 @@ Replaces vanilla rain and snow with particle rain that changes from storm to sto
 3. Put the `.jar` in your `mods` folder next to Fabric API, YACL and Mod Menu (and Roof Drips 1.0.9 for the wind link).
 
 If the build fails, copy the red error text from the build log and send it to me.
+
+## What's new in 0.7.0 (pairs with Roof Drips 1.0.11)
+* Default opacity is now 45%. Drops are smaller as rain gets heavier (drizzle unchanged at x1.5; light ~x1.0, heavy ~x0.7,
+  torrential and thunderstorm x0.4 by default). Existing settings still on the old defaults are updated automatically.
+* New "Rain brightness" slider (default 85%) and a little brightness variation between drops, to help the rain sit better
+  under shader packs' lighting.
+* Roof Drips now also receives the rain's visible slant, so drips on lower overhangs (balconies, awnings, tower tiers) react
+  to the same wind direction you see in the rain. `/livingrain status` shows it.
 
 ## What's new in 0.6.0 (needs Roof Drips 1.0.10 for the new part)
 * **Roof Drips drip amount follows the rain's severity.** Few drips in a drizzle, more in a downpour, the most in a thunderstorm.

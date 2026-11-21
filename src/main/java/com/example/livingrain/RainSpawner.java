@@ -29,6 +29,8 @@ public final class RainSpawner {
     public static boolean flipSlant, splashes;
     /** Chance that a drop landing near the player makes a splash (lowered automatically in dense rain). */
     public static float splashChance = 0.35f;
+    /** Rain colour brightness (set each tick from the settings; new particles read it). */
+    public static float brightness = 0.85f;
 
     /** Counts spawner ticks. Particles stamp it so we can tell which ones Minecraft has stopped ticking. */
     public static long clock;
@@ -38,6 +40,8 @@ public final class RainSpawner {
     public static int discardedTotal;
     /** Current rain fall speed in blocks per tick (for /livingrain status). */
     public static float lastFall;
+    /** How far the visible rain moves sideways per block it falls (x and z). Roof Drips uses this to see which lower overhangs rain reaches. */
+    public static float slantX, slantZ;
     /** Current drop-size multiplier and splash target per tick (for /livingrain status). */
     public static float lastSizeMult, lastSplashTarget;
     private static boolean limitLogged;
@@ -51,11 +55,12 @@ public final class RainSpawner {
     /**
      * Rain drop size multiplier for the current weather: big drops in light rain, smaller ones as rain gets heavier.
      * Drizzle uses "Drop size: drizzle", torrential rain uses "Drop size: thunderstorm", and light and heavy rain are blended
-     * evenly in between. During any thunderstorm the size eases to the thunderstorm size (a few seconds after thunder starts).
+     * in between. The blend drops a little faster than a straight line, so even light rain is already smaller than a drizzle.
+     * During any thunderstorm the size eases to the thunderstorm size (a few seconds after thunder starts).
      */
     public static float sizeMultiplier(float inten, LivingRainConfig cfg) {
         float t = Math.max(0f, Math.min(1f, (inten - 0.25f) / 0.75f));
-        float rainSize = cfg.dropSizeDrizzle + (cfg.dropSizeThunder - cfg.dropSizeDrizzle) * t;
+        float rainSize = cfg.dropSizeDrizzle + (cfg.dropSizeThunder - cfg.dropSizeDrizzle) * (float) Math.pow(t, 0.75);
         float tb = StormDirector.thunderBlend();
         return rainSize + (cfg.dropSizeThunder - rainSize) * tb;
     }
@@ -109,6 +114,7 @@ public final class RainSpawner {
         upZ = cy * sp;
         radiusNow = cfg.radius;
         flipSlant = cfg.flipSlant;
+        brightness = cfg.rainBrightness;
         splashes = cfg.splashes;
         double kill = cfg.radius + 20.0;
         killDistSq = kill * kill;
@@ -130,6 +136,9 @@ public final class RainSpawner {
             windX *= maxH / mag;
             windZ *= maxH / mag;
         }
+        float fallNow = Math.max(0.05f, fall * StormDirector.speedMul);
+        slantX = windX / fallNow;
+        slantZ = windZ / fallNow;
 
         if (!Float.isFinite(inten) || !cfg.particleRain || inten < 0.02f) { acc = 0f; return; }
 

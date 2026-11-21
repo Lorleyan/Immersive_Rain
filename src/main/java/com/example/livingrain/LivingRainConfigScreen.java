@@ -256,6 +256,11 @@ public final class LivingRainConfigScreen {
                 "Stretches each drop into a soft streak, longer the faster it moves (gusts stretch drops further), so the rain looks "
               + "smooth instead of blocky. 0% = short crisp streaks.",
                 0f, 2f, 0.05f, true, c -> c.motionBlur, (c, v) -> c.motionBlur = v));
+        look.add(flt("Rain brightness",
+                "How bright the rain's colour is. Lower values make the rain sit more quietly in the scene, which can help it blend "
+              + "with a shader pack's lighting (shader packs often add their own bloom and glare on bright particles). "
+              + "Each drop also varies slightly in brightness.",
+                0.3f, 1f, 0.05f, true, c -> c.rainBrightness, (c, v) -> c.rainBrightness = v));
         look.add(flt("Opacity", "How visible the rain is.",
                 0.1f, 1f, 0.05f, true, c -> c.opacity, (c, v) -> c.opacity = v));
         look.add(flt("Drop size: drizzle",

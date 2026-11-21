@@ -14,7 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 /** All settings. Saved to config/livingrain.json. Plain Java: no config-library classes in here. */
 public class LivingRainConfig {
 
-    private static final int CONFIG_VERSION = 4;
+    private static final int CONFIG_VERSION = 5;
 
     /** null in files written by older versions of the mod. */
     public Integer configVersion;
@@ -90,12 +90,14 @@ public class LivingRainConfig {
     public int maxParticles = 20000;
     /** 0 = crisp short streaks, 1 = long soft streaks. */
     public float motionBlur = 0.8f;
-    public float opacity = 0.5f;
+    public float opacity = 0.45f;
+    /** Brightness of the rain colour, so it can be matched to a shader pack's lighting. */
+    public float rainBrightness = 0.85f;
     /** Size of snowflakes only (rain size now comes from the two settings below). */
     public float dropSize = 1.0f;
     /** Rain drop size: lightest rain (drizzle) and thunderstorm. Everything in between is blended automatically. */
     public float dropSizeDrizzle = 1.5f;
-    public float dropSizeThunder = 0.5f;
+    public float dropSizeThunder = 0.4f;
     /** How many ground splashes there are (1.0 = default; they also increase automatically with rain intensity). */
     public float splashAmount = 1.0f;
     /** Experimental: draw rain so it stays visible behind glass when a shader pack is on. */
@@ -197,7 +199,7 @@ public class LivingRainConfig {
         density = cl(density, 0.1f, 20f); maxParticles = cl(maxParticles, 200, 60000);
         motionBlur = cl(motionBlur, 0f, 2f); messageStyle = cl(messageStyle, 0, 1);
         opacity = cl(opacity, 0.1f, 1f); dropSize = cl(dropSize, 0.3f, 2f);
-        dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
+        rainBrightness = cl(rainBrightness, 0.3f, 1f); dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
         splashAmount = cl(splashAmount, 0f, 4f);
         fallSpeed = cl(fallSpeed, 0.3f, 6f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
         rainVolume = cl(rainVolume, 0f, 1.5f);
@@ -232,6 +234,11 @@ public class LivingRainConfig {
                             if (c.configVersion < 4) {
                                 // 0.5.0: rain size now comes from the drizzle/thunderstorm settings; dropSize is for snow only.
                                 c.dropSize = 1.0f;
+                            }
+                            if (c.configVersion < 5) {
+                                // 0.7.0: slightly lower default opacity and thunderstorm drop size. Only touched if still on the old default.
+                                if (c.opacity == 0.5f) c.opacity = 0.45f;
+                                if (c.dropSizeThunder == 0.5f) c.dropSizeThunder = 0.4f;
                             }
                         }
                         c.configVersion = CONFIG_VERSION;

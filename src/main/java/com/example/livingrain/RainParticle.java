@@ -100,7 +100,11 @@ public class RainParticle extends SingleQuadParticle {
         this.lifetime = snow ? 1600 : 500;
         this.phase = this.random.nextFloat() * 100f;
         if (snow) this.setColor(1.0f, 1.0f, 1.0f);
-        else this.setColor(0.80f, 0.88f, 1.0f);
+        else {
+            // A little variation from drop to drop (so the rain is not one flat colour), scaled by the brightness setting.
+            float v = RainSpawner.brightness * (0.88f + this.random.nextFloat() * 0.24f);
+            this.setColor(Math.min(1f, 0.80f * v), Math.min(1f, 0.88f * v), Math.min(1f, 1.0f * v));
+        }
         this.setAlpha(0f);          // fades in over the first few ticks
         this.lastSeen = RainSpawner.clock;
         ALL.add(this);

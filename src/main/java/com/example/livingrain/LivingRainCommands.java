@@ -115,6 +115,7 @@ public final class LivingRainCommands {
             say(src, StormDirector.statusLine());
             say(src, String.format("Server weather: rain %.2f, thunder %.2f", StormDirector.rawRain(), StormDirector.rawThunder()));
             say(src, String.format("Rain falls at %.2f blocks/tick (%.0f blocks/second)", RainSpawner.lastFall, RainSpawner.lastFall * 20f));
+            say(src, String.format("Rain slant sent to Roof Drips (sideways blocks per block of fall): x %.2f, z %.2f", RainSpawner.slantX, RainSpawner.slantZ));
             say(src, String.format("Drop size multiplier now: x%.2f   |   splash target: %.0f per tick   |   see-through rain: %s",
                     RainSpawner.lastSizeMult, RainSpawner.lastSplashTarget, c.seeThroughWindows ? "on" : "off"));
             say(src, "Particles alive: " + RainParticle.live() + " (limit " + c.maxParticles
