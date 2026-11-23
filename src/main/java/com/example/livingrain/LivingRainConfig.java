@@ -74,11 +74,11 @@ public class LivingRainConfig {
     public int gustDuration = 3;
     public float rainWindInfluence = 1.5f;
 
-    // ---- Roof Drips link ----
+    // ---- Immersive Drips link ----
     public boolean overrideRoofDrips = true;
-    /** Roof Drips' drip amounts follow the rain's severity. Off = Roof Drips behaves exactly as it does without this mod. */
+    /** Immersive Drips' drip amounts follow the rain's severity. Off = Immersive Drips behaves exactly as it does without this mod. */
     public boolean dripScaling = true;
-    /** Drip amount as a share of Roof Drips' own density setting: lightest rain, torrential rain, and thunderstorm. */
+    /** Drip amount as a share of Immersive Drips' own density setting: lightest rain, torrential rain, and thunderstorm. */
     public float dripDrizzle = 0.20f;
     public float dripTorrential = 1.0f;
     public float dripThunder = 1.3f;
@@ -100,6 +100,12 @@ public class LivingRainConfig {
     public float dropSizeThunder = 0.4f;
     /** How many ground splashes there are (1.0 = default; they also increase automatically with rain intensity). */
     public float splashAmount = 1.0f;
+    /** Heavy-rain effects. They fade in between light and heavy rain; drizzle and light rain are plain particles. */
+    public boolean curtains = true;
+    public float curtainStrength = 1.0f;
+    public boolean glints = true;
+    public float glintAmount = 0.6f;
+    public float backlight = 1.0f;
     /** Experimental: draw rain so it stays visible behind glass when a shader pack is on. */
     public boolean seeThroughWindows = false;
     public float fallSpeed = 2.0f;
@@ -199,7 +205,7 @@ public class LivingRainConfig {
         density = cl(density, 0.1f, 20f); maxParticles = cl(maxParticles, 200, 60000);
         motionBlur = cl(motionBlur, 0f, 2f); messageStyle = cl(messageStyle, 0, 1);
         opacity = cl(opacity, 0.1f, 1f); dropSize = cl(dropSize, 0.3f, 2f);
-        rainBrightness = cl(rainBrightness, 0.3f, 1f); dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
+        rainBrightness = cl(rainBrightness, 0.3f, 1f); curtainStrength = cl(curtainStrength, 0f, 2f); glintAmount = cl(glintAmount, 0f, 1f); backlight = cl(backlight, 0f, 2f); dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
         splashAmount = cl(splashAmount, 0f, 4f);
         fallSpeed = cl(fallSpeed, 0.3f, 6f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
         rainVolume = cl(rainVolume, 0f, 1.5f);
@@ -236,7 +242,7 @@ public class LivingRainConfig {
                                 c.dropSize = 1.0f;
                             }
                             if (c.configVersion < 5) {
-                                // 0.7.0: slightly lower default opacity and thunderstorm drop size. Only touched if still on the old default.
+                                // 1.1.0: slightly lower default opacity and thunderstorm drop size. Only touched if still on the old default.
                                 if (c.opacity == 0.5f) c.opacity = 0.45f;
                                 if (c.dropSizeThunder == 0.5f) c.dropSizeThunder = 0.4f;
                             }

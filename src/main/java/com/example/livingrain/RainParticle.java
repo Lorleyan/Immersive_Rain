@@ -73,6 +73,7 @@ public class RainParticle extends SingleQuadParticle {
 
     private final boolean snow;
     private final boolean solid;
+    private final boolean glint;
     private final float windMul;
     private final float phase;
     private final float baseSize;
@@ -82,10 +83,11 @@ public class RainParticle extends SingleQuadParticle {
     private long lastSeen;
 
     protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow, boolean solid,
-                           double vx, double vy, double vz) {
+                           boolean glint, double vx, double vy, double vz) {
         super(level, x, y, z, sprites.first());
         this.snow = snow;
         this.solid = solid;
+        this.glint = glint;
         this.windMul = pendingWindMul;
         this.xd = vx;
         this.yd = vy;
@@ -193,6 +195,19 @@ public class RainParticle extends SingleQuadParticle {
         double fadeStart = RainSpawner.radiusNow * 0.70;
         double fadeEnd = RainSpawner.radiusNow * 1.15;
         if (dh > fadeStart) a *= (float) Math.max(0.0, (fadeEnd - dh) / (fadeEnd - fadeStart));
+        if (!snow) {
+            // Backlight: rain glows when it is between you and the sun or moon (light scattering toward the camera).
+            if (RainSpawner.backlightAmount > 0f && SunMoon.strength > 0f && near > 1.0) {
+                double cosT = (dx * SunMoon.lx + dy * SunMoon.ly + dz * SunMoon.lz) / near;
+                if (cosT > 0.0) {
+                    double c2 = cosT * cosT;
+                    a *= 1f + 2.2f * (float) (c2 * c2) * SunMoon.strength * RainSpawner.backlightAmount;
+                }
+            }
+            // Sparkle: glinting drops flicker a little from tick to tick.
+            if (glint) a *= 0.8f + 0.4f * this.random.nextFloat();
+            if (a > 0.95f) a = 0.95f;
+        }
         this.setAlpha(a);
 
         int top = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(this.x), Mth.floor(this.z));
@@ -214,7 +229,19 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, false, false, vx, vy, vz);
+        }
+    }
+
+    /** A drop with a bright "catch of the light" along part of its streak, and a little sparkle from tick to tick. */
+    public static class GlintProvider implements ParticleProvider<SimpleParticleType> {
+        private final SpriteSet sprites;
+        public GlintProvider(SpriteSet sprites) { this.sprites = sprites; }
+
+        @Override
+        public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
+                                       double vx, double vy, double vz, RandomSource random) {
+            return new RainParticle(level, x, y, z, sprites, false, false, true, vx, vy, vz);
         }
     }
 
@@ -226,7 +253,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, true, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, true, false, vx, vy, vz);
         }
     }
 
@@ -237,7 +264,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, true, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, true, false, false, vx, vy, vz);
         }
     }
 }

@@ -12,6 +12,8 @@ public class LivingRainMod implements ModInitializer {
 
     public static final SimpleParticleType RAIN = FabricParticleTypes.simple();
     public static final SimpleParticleType RAIN_SOLID = FabricParticleTypes.simple();
+    public static final SimpleParticleType RAIN_GLINT_A = FabricParticleTypes.simple();
+    public static final SimpleParticleType RAIN_GLINT_B = FabricParticleTypes.simple();
     public static final SimpleParticleType SNOW = FabricParticleTypes.simple();
 
     @Override
@@ -20,6 +22,10 @@ public class LivingRainMod implements ModInitializer {
                 Identifier.fromNamespaceAndPath("livingrain", "rain_streak"), RAIN);
         Registry.register(BuiltInRegistries.PARTICLE_TYPE,
                 Identifier.fromNamespaceAndPath("livingrain", "rain_streak_solid"), RAIN_SOLID);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE,
+                Identifier.fromNamespaceAndPath("livingrain", "rain_streak_glint_a"), RAIN_GLINT_A);
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE,
+                Identifier.fromNamespaceAndPath("livingrain", "rain_streak_glint_b"), RAIN_GLINT_B);
         Registry.register(BuiltInRegistries.PARTICLE_TYPE,
                 Identifier.fromNamespaceAndPath("livingrain", "snow_flake"), SNOW);
     }

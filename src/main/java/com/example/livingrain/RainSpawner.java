@@ -31,18 +31,24 @@ public final class RainSpawner {
     public static float splashChance = 0.35f;
     /** Rain colour brightness (set each tick from the settings; new particles read it). */
     public static float brightness = 0.85f;
+    /** 0..1: how much the heavy-rain effects (curtains, glints, backlight) apply right now. 0 in drizzle and light rain. */
+    public static float heavyFactor;
+    /** Backlight setting times heavyFactor; read by the particles. */
+    public static float backlightAmount;
+    /** Share of drops that are glint variants right now (for /BRain status). */
+    public static float lastGlintShare, lastCurtainAmp;
 
     /** Counts spawner ticks. Particles stamp it so we can tell which ones Minecraft has stopped ticking. */
     public static long clock;
-    /** Particles created on the last tick, and the lowest limit Minecraft has been seen to enforce (for /livingrain status). */
+    /** Particles created on the last tick, and the lowest limit Minecraft has been seen to enforce (for /BRain status). */
     public static int lastSpawned;
     public static int autoCap = Integer.MAX_VALUE;
     public static int discardedTotal;
-    /** Current rain fall speed in blocks per tick (for /livingrain status). */
+    /** Current rain fall speed in blocks per tick (for /BRain status). */
     public static float lastFall;
-    /** How far the visible rain moves sideways per block it falls (x and z). Roof Drips uses this to see which lower overhangs rain reaches. */
+    /** How far the visible rain moves sideways per block it falls (x and z). Immersive Drips uses this to see which lower overhangs rain reaches. */
     public static float slantX, slantZ;
-    /** Current drop-size multiplier and splash target per tick (for /livingrain status). */
+    /** Current drop-size multiplier and splash target per tick (for /BRain status). */
     public static float lastSizeMult, lastSplashTarget;
     private static boolean limitLogged;
     private static int stallTicks;
@@ -115,6 +121,11 @@ public final class RainSpawner {
         radiusNow = cfg.radius;
         flipSlant = cfg.flipSlant;
         brightness = cfg.rainBrightness;
+        // Heavy-rain effects fade in between light rain (0.55) and heavy rain (0.75); drizzle and light rain stay plain particles.
+        float ht = Math.max(0f, Math.min(1f, (inten - 0.55f) / 0.20f));
+        heavyFactor = ht * ht * (3f - 2f * ht);
+        backlightAmount = cfg.backlight * heavyFactor;
+        if (cfg.backlight > 0f && heavyFactor > 0f) SunMoon.update(level);
         splashes = cfg.splashes;
         double kill = cfg.radius + 20.0;
         killDistSq = kill * kill;
@@ -153,12 +164,18 @@ public final class RainSpawner {
         float vySnow = 0.07f * (0.6f + 0.2f * cfg.fallSpeed);       // snow is slow and does not scale like rain
         float perTick = 0.12f * dens * (float) (Math.PI * r * r) * vyRain;
         if (!Float.isFinite(acc)) acc = 0f;
+        // Rain curtains: patches of thicker and thinner rain drifting with the wind. Candidates are raised by (1 + amp) and then
+        // thinned by the local density, so the average amount of rain stays what the Density setting says.
+        float amp = cfg.curtains ? Math.min(0.9f, 0.7f * cfg.curtainStrength * heavyFactor) : 0f;
+        lastCurtainAmp = amp;
+        Curtains.advance(windX, windZ);
+
         // Splashes near the player per tick: few in a drizzle, many in a downpour, the most in a thunderstorm.
         // (Only drops landing within 12 blocks splash, so the chance is the target divided by how many land there.)
         float nearLandings = perTick * (144f / (r * r));
         lastSplashTarget = (10f + 140f * inten * inten) * (1f + 0.5f * StormDirector.thunderBlend()) * cfg.splashAmount;
         splashChance = Math.min(0.7f, lastSplashTarget / Math.max(1f, nearLandings));
-        acc += Float.isFinite(perTick) ? perTick : 0f;
+        acc += Float.isFinite(perTick) ? perTick * (1f + amp) : 0f;
         int count = (int) acc;
         acc -= count;
         count = Math.min(count, 12000);
@@ -173,7 +190,18 @@ public final class RainSpawner {
         lastSizeMult = sizeMultiplier(inten, cfg);
         net.minecraft.core.particles.SimpleParticleType rainType = cfg.seeThroughWindows ? LivingRainMod.RAIN_SOLID : LivingRainMod.RAIN;
         float size = (0.14f + 0.36f * inten) * lastSizeMult * StormDirector.sizeMul * stretch * lenSpeed;
-        float alpha = (0.22f + 0.33f * inten) * cfg.opacity * blurAlpha;
+        // Each drop is fainter the more drops there are (so a downpour is not a white-out), but a drizzle must stay visible:
+        // it has the fewest drops, so each one has to show.
+        float baseA = inten <= 0.25f ? 0.80f
+                : inten >= 0.75f ? 0.4675f + (0.55f - 0.4675f) * (inten - 0.75f) / 0.25f
+                : 0.80f - (0.80f - 0.4675f) * (inten - 0.25f) / 0.50f;
+        float alpha = baseA * cfg.opacity * blurAlpha;
+        if (cfg.seeThroughWindows) {
+            // The opaque layer cannot blend: alpha only decides how much of the streak's edge is cut away. Keep it high
+            // enough that even a drizzle leaves a visible thin line.
+            alpha = (0.16f + 0.34f * cfg.opacity) * (0.85f + 0.35f * inten);
+        }
+        lastGlintShare = (cfg.glints && !cfg.seeThroughWindows) ? cfg.glintAmount * heavyFactor : 0f;
         double height = cfg.spawnHeight;
 
         for (int n = 0; n < count; n++) {
@@ -194,6 +222,9 @@ public final class RainSpawner {
             int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz);
             if (ySpawn < top + 0.5) continue;                    // that column is roofed over
 
+            // thin out by the curtain pattern at the spot where the drop will pass the player
+            if (amp > 0f && rnd.nextFloat() > Curtains.multiplier(tx, tz, amp) / (1f + amp)) continue;
+
             P.set(bx, top, bz);
             Biome.Precipitation precip = level.getBiome(P).value().getPrecipitationAt(P, seaLevel);
             if (precip == Biome.Precipitation.NONE) continue;
@@ -210,7 +241,11 @@ public final class RainSpawner {
                 RainParticle.pendingSize = size * (0.85f + rnd.nextFloat() * 0.3f);
                 RainParticle.pendingAlpha = alpha * (0.8f + rnd.nextFloat() * 0.4f);
                 RainParticle.pendingWindMul = 0.9f + rnd.nextFloat() * 0.2f;
-                level.addParticle(rainType, sx, ySpawn, sz, windX, -vy, windZ);
+                net.minecraft.core.particles.SimpleParticleType kind = rainType;
+                if (lastGlintShare > 0f && rnd.nextFloat() < lastGlintShare) {
+                    kind = rnd.nextBoolean() ? LivingRainMod.RAIN_GLINT_A : LivingRainMod.RAIN_GLINT_B;
+                }
+                level.addParticle(kind, sx, ySpawn, sz, windX, -vy, windZ);
                 lastSpawned++;
             }
         }

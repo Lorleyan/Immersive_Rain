@@ -99,9 +99,9 @@ public final class StormDirector {
     public static float rawThunderLevel() { return rawThunder * rawRain; }
 
     /**
-     * The rain level Roof Drips should use. With drip scaling on: a level that follows the storm's severity, so a drizzle
-     * gives a fraction of Roof Drips' own drip density and a thunderstorm gives more (drizzle -> torrential are blended evenly,
-     * thunder eases to the thunderstorm amount). With it off: the server's plain rain level, exactly what Roof Drips would
+     * The rain level Immersive Drips should use. With drip scaling on: a level that follows the storm's severity, so a drizzle
+     * gives a fraction of Immersive Drips' own drip density and a thunderstorm gives more (drizzle -> torrential are blended evenly,
+     * thunder eases to the thunderstorm amount). With it off: the server's plain rain level, exactly what Immersive Drips would
      * see without this mod, so it behaves as it always did.
      */
     public static float dripLevel(LivingRainConfig cfg) {
@@ -137,6 +137,7 @@ public final class StormDirector {
         RainParticle.clearAll();     // Minecraft discards particles on world change without telling them
         StormWind.forced = -1;
         StormWind.reset();
+        Curtains.reset();
         WeatherMessages.resetCooldown();
     }
 
@@ -157,7 +158,7 @@ public final class StormDirector {
         checkHook(level);
         if (worldTicks == 400 && WeatherHooks.shouldHide() && (WeatherHooks.drawHits() == 0 || WeatherHooks.tickHits() == 0)) {
             LOG.warn("[livingrain] Some vanilla weather hooks never fired (draw hits: {}, splash/sound hits: {}). "
-                    + "Using the fallback method to hide vanilla rain. Run /livingrain status and send me the result.",
+                    + "Using the fallback method to hide vanilla rain. Run /BRain status and send me the result.",
                     WeatherHooks.drawHits(), WeatherHooks.tickHits());
         }
 

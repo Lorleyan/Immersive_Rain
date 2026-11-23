@@ -2,16 +2,26 @@
   "schemaVersion": 1,
   "id": "livingrain",
   "version": "${version}",
-  "name": "Living Rain",
-  "description": "Particle-based rain and snow that changes from storm to storm and during storms, with simulated wind. Configure via Mod Menu.",
-  "authors": ["You"],
+  "name": "Brewtality's Immersive Rain",
+  "description": "Particle-based rain and snow that changes from storm to storm and during storms, with simulated wind. Works on its own; with Brewtality's Immersive Drips installed they share one wind and the drips follow how heavy the rain is. Configure via Mod Menu.",
+  "authors": [
+    "Brewtality"
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "main": ["com.example.livingrain.LivingRainMod"],
-    "client": ["com.example.livingrain.LivingRainClient"],
-    "modmenu": ["com.example.livingrain.LivingRainModMenu"],
-    "roofdrips:wind": ["com.example.livingrain.RoofDripsWindSupplier"]
+    "main": [
+      "com.example.livingrain.LivingRainMod"
+    ],
+    "client": [
+      "com.example.livingrain.LivingRainClient"
+    ],
+    "modmenu": [
+      "com.example.livingrain.LivingRainModMenu"
+    ],
+    "roofdrips:wind": [
+      "com.example.livingrain.RoofDripsWindSupplier"
+    ]
   },
   "mixins": [
     "livingrain.mixins.json",
@@ -26,6 +36,6 @@
   "suggests": {
     "modmenu": "*",
     "yet_another_config_lib_v3": "*",
-    "roofdrips": "*"
+    "roofdrips": ">=1.1.0"
   }
 }
