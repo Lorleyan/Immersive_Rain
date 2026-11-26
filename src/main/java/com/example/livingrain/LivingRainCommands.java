@@ -15,6 +15,8 @@ import net.minecraft.network.chat.Component;
  *   /BRain weather real | clear | drizzle | light | heavy | torrential | thunder
  *   /BRain vanilla on | off
  *   /BRain drips on | off
+ *   /BRain curtains show on | off     (debug tint: red = thick rain, blue = thin rain)
+ *   /BRain flash                      (test the lightning flash)
  *   /BRain status
  *
  * Minecraft treats command names as case-sensitive, so the same commands are also available as /brain.
@@ -115,6 +117,25 @@ public final class LivingRainCommands {
                     return 1;
                 })));
 
+        // ---- curtain debug view and lightning-flash test ----
+        root.then(ClientCommands.literal("curtains").then(ClientCommands.literal("show")
+                .then(ClientCommands.literal("on").executes(ctx -> {
+                    LivingRainConfig.get().curtainDebug = true;
+                    say(ctx.getSource(), "Curtain view ON: red = thick rain, blue = thin rain. Rain must be falling to see it "
+                            + "(try /BRain weather heavy). It switches off when you restart the game.");
+                    return 1;
+                }))
+                .then(ClientCommands.literal("off").executes(ctx -> {
+                    LivingRainConfig.get().curtainDebug = false;
+                    say(ctx.getSource(), "Curtain view OFF.");
+                    return 1;
+                }))));
+        root.then(ClientCommands.literal("flash").executes(ctx -> {
+            Flash.trigger();
+            say(ctx.getSource(), "Lightning flash test: the rain should brighten for an instant.");
+            return 1;
+        }));
+
         // ---- status ----
         root.then(ClientCommands.literal("status").executes(ctx -> {
             FabricClientCommandSource src = ctx.getSource();
@@ -128,6 +149,9 @@ public final class LivingRainCommands {
             say(src, String.format("Heavy-rain effects: strength %.2f | curtain contrast +/-%.0f%% | glinting drops %.0f%% | sun/moon direction: %s",
                     RainSpawner.heavyFactor, RainSpawner.lastCurtainAmp * 100f, RainSpawner.lastGlintShare * 100f,
                     SunMoon.available ? "available" : "NOT found (no backlight glow)"));
+            say(src, String.format("Rain sheets alive: %d  (sheet strength %.2f)  |  lightning-flash timer: %s  |  curtain view: %s",
+                    RainParticle.sheets(), RainSpawner.lastSheetShare, Flash.sourceFound ? "found" : "NOT found (only /BRain flash works)",
+                    c.curtainDebug ? "ON" : "off"));
             say(src, String.format("Drop size multiplier now: x%.2f   |   splash target: %.0f per tick   |   see-through rain: %s",
                     RainSpawner.lastSizeMult, RainSpawner.lastSplashTarget, c.seeThroughWindows ? "on" : "off"));
             say(src, "Particles alive: " + RainParticle.live() + " (limit " + c.maxParticles

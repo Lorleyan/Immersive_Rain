@@ -302,6 +302,21 @@ public final class LivingRainConfigScreen {
         heavy.add(LabelOption.createBuilder().line(Component.literal(
                 "These effects fade in as rain gets heavier. Drizzle and light rain are plain particles; the full effect is "
               + "reached in heavy rain, torrential rain and thunderstorms.")).build());
+        heavy.add(bool("Rain sheets",
+                "Heavy rain gets many extra thin streaks drawn as big flat pictures, each holding dozens of drops. This is what gives "
+              + "a downpour its dense, thin-streak look without needing millions of particles. Fewer individual drops are made "
+              + "while sheets are on. Not used with 'See rain through windows'.",
+                c -> c.sheets, (c, v) -> c.sheets = v));
+        heavy.add(flt("Sheet amount",
+                "How many sheets there are. RED = above 150%: sheets are big, so many of them cost graphics performance.",
+                0f, 2f, 0.05f, true, 1.5f, c -> c.sheetAmount, (c, v) -> c.sheetAmount = v));
+        heavy.add(flt("Sheet size", "How big each sheet is. Bigger sheets cover more of the view but show their flat shape more.",
+                0.6f, 1.6f, 0.05f, true, c -> c.sheetSize, (c, v) -> c.sheetSize = v));
+        heavy.add(bool("Lightning flash",
+                "The rain lights up for an instant when lightning strikes. Use /BRain flash to test it.",
+                c -> c.lightningFlash, (c, v) -> c.lightningFlash = v));
+        heavy.add(flt("Flash strength", "How bright the flash is.",
+                0f, 2f, 0.05f, true, c -> c.flashStrength, (c, v) -> c.flashStrength = v));
         heavy.add(bool("Rain curtains",
                 "Patches of thicker and thinner rain drift along the wind, so you see walls of rain sweeping past instead of an "
               + "even sprinkle. The overall amount of rain stays what Density says.",
@@ -409,7 +424,7 @@ public final class LivingRainConfigScreen {
         List<Option<?>> debugStatus = new ArrayList<>();
         debugStatus.add(LabelOption.createBuilder().line(Component.literal(
                 "Access console commands via /BRain  (for example /BRain status, /BRain weather heavy, /BRain preset dramatic, "
-              + "/BRain start, /BRain stop). Type /BRain in chat and press Tab to see them all.")).build());
+              + "/BRain curtains show on, /BRain flash, /BRain start, /BRain stop). Type /BRain in chat and press Tab to see them all.")).build());
         debugStatus.add(LabelOption.createBuilder().line(Component.literal(StormDirector.statusLine())).build());
         debugStatus.add(LabelOption.createBuilder().line(Component.literal(
                 "Test mode swaps the real weather for one you choose, on your screen only (the server and other players are "
@@ -443,6 +458,11 @@ public final class LivingRainConfigScreen {
                 v -> new String[] { "Automatic", "Calm", "Breezy", "Windy", "Gale" }[v], c -> c.testWind, (c, v) -> c.testWind = v));
 
         List<Option<?>> debug = new ArrayList<>();
+        debug.add(bool("Show rain curtains (tint)",
+                "Debug view: colours the rain by how thick the rain curtain is at that spot. RED = thick rain, BLUE = thin rain, white = "
+              + "average. It also shows the curtains at full strength even in light rain, so you can see how they move with the wind. "
+              + "Switches itself off when you restart the game. Also: /BRain curtains show on|off.",
+                c -> c.curtainDebug, (c, v) -> c.curtainDebug = v));
         debug.add(bool("Log storm changes",
                 "Writes a short line to the game log (logs/latest.log) whenever a storm starts, changes intensity or ends. "
               + "Handy for checking what the mod is doing.",

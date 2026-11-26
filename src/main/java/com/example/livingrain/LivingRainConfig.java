@@ -106,6 +106,13 @@ public class LivingRainConfig {
     public boolean glints = true;
     public float glintAmount = 0.6f;
     public float backlight = 1.0f;
+    /** Rain sheets: big pictures of many thin streaks, for the "tons of thin rain" look in heavy rain. */
+    public boolean sheets = true;
+    public float sheetAmount = 1.0f;
+    public float sheetSize = 1.0f;
+    /** Rain brightens for an instant when lightning strikes. */
+    public boolean lightningFlash = true;
+    public float flashStrength = 1.0f;
     /** Experimental: draw rain so it stays visible behind glass when a shader pack is on. */
     public boolean seeThroughWindows = false;
     public float fallSpeed = 2.0f;
@@ -125,6 +132,8 @@ public class LivingRainConfig {
     public transient int testTier = 2;
     /** 0 = automatic, 1..4 = calm, breezy, windy, gale. */
     public transient int testWind = 0;
+    /** Debug view: tint rain by how thick the rain curtain is at that spot (red = thick, blue = thin). Not saved. */
+    public transient boolean curtainDebug = false;
 
     // ---------------- Helpers ----------------
     public float[] rainWeights() {
@@ -205,7 +214,7 @@ public class LivingRainConfig {
         density = cl(density, 0.1f, 20f); maxParticles = cl(maxParticles, 200, 60000);
         motionBlur = cl(motionBlur, 0f, 2f); messageStyle = cl(messageStyle, 0, 1);
         opacity = cl(opacity, 0.1f, 1f); dropSize = cl(dropSize, 0.3f, 2f);
-        rainBrightness = cl(rainBrightness, 0.3f, 1f); curtainStrength = cl(curtainStrength, 0f, 2f); glintAmount = cl(glintAmount, 0f, 1f); backlight = cl(backlight, 0f, 2f); dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
+        rainBrightness = cl(rainBrightness, 0.3f, 1f); curtainStrength = cl(curtainStrength, 0f, 2f); sheetAmount = cl(sheetAmount, 0f, 2f); sheetSize = cl(sheetSize, 0.6f, 1.6f); flashStrength = cl(flashStrength, 0f, 2f); glintAmount = cl(glintAmount, 0f, 1f); backlight = cl(backlight, 0f, 2f); dropSizeDrizzle = cl(dropSizeDrizzle, 0.3f, 2f); dropSizeThunder = cl(dropSizeThunder, 0.3f, 2f);
         splashAmount = cl(splashAmount, 0f, 4f);
         fallSpeed = cl(fallSpeed, 0.3f, 6f); fallSpeedVar = cl(fallSpeedVar, 0f, 0.6f);
         rainVolume = cl(rainVolume, 0f, 1.5f);

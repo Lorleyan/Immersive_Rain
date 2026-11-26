@@ -37,6 +37,7 @@ public class RainParticle extends SingleQuadParticle {
     public static int prune(long now) {
         int keep = 0;
         int discarded = 0;
+        int sheets = 0;
         for (int i = 0; i < ALL.size(); i++) {
             RainParticle p = ALL.get(i);
             if (p.gone) continue;
@@ -47,7 +48,9 @@ public class RainParticle extends SingleQuadParticle {
                 continue;
             }
             ALL.set(keep++, p);
+            if (p.sheet) sheets++;
         }
+        sheetsAlive = sheets;
         if (keep < ALL.size()) ALL.subList(keep, ALL.size()).clear();
         return discarded;
     }
@@ -56,6 +59,12 @@ public class RainParticle extends SingleQuadParticle {
     public static float pendingSize = 0.3f;
     public static float pendingAlpha = 0.5f;
     public static float pendingWindMul = 1f;
+    /** Debug colour for the next particle (r, g, b), or null for the normal colour. */
+    public static float[] pendingTint;
+
+    private static int sheetsAlive;
+    /** Number of rain sheets alive (for /BRain status). */
+    public static int sheets() { return sheetsAlive; }
 
     /**
      * Minecraft's "opaque" particle layer, if this version has one (looked up by name so a missing one cannot break the build).
@@ -74,6 +83,7 @@ public class RainParticle extends SingleQuadParticle {
     private final boolean snow;
     private final boolean solid;
     private final boolean glint;
+    private final boolean sheet;
     private final float windMul;
     private final float phase;
     private final float baseSize;
@@ -83,11 +93,12 @@ public class RainParticle extends SingleQuadParticle {
     private long lastSeen;
 
     protected RainParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites, boolean snow, boolean solid,
-                           boolean glint, double vx, double vy, double vz) {
+                           boolean glint, boolean sheet, double vx, double vy, double vz) {
         super(level, x, y, z, sprites.first());
         this.snow = snow;
         this.solid = solid;
         this.glint = glint;
+        this.sheet = sheet;
         this.windMul = pendingWindMul;
         this.xd = vx;
         this.yd = vy;
@@ -99,9 +110,10 @@ public class RainParticle extends SingleQuadParticle {
         this.gravity = 0f;
         this.friction = 1f;
         this.hasPhysics = false;
-        this.lifetime = snow ? 1600 : 500;
+        this.lifetime = snow ? 1600 : (sheet ? 300 : 500);
         this.phase = this.random.nextFloat() * 100f;
         if (snow) this.setColor(1.0f, 1.0f, 1.0f);
+        else if (pendingTint != null) this.setColor(pendingTint[0], pendingTint[1], pendingTint[2]);
         else {
             // A little variation from drop to drop (so the rain is not one flat colour), scaled by the brightness setting.
             float v = RainSpawner.brightness * (0.88f + this.random.nextFloat() * 0.24f);
@@ -171,7 +183,8 @@ public class RainParticle extends SingleQuadParticle {
             // Seen from straight above or below, a falling drop is almost a point; seen from the side it is a full
             // streak. Faster drops (gusts) are stretched longer: that is the motion blur.
             double proj = Math.sqrt(sx * sx + sy * sy) / Math.max(0.0001, speed);
-            double fast = Math.max(0.7, Math.min(2.0, speed / this.refSpeed));
+            double fast = sheet ? Math.max(0.9, Math.min(1.3, speed / this.refSpeed))
+                                : Math.max(0.7, Math.min(2.0, speed / this.refSpeed));
             this.quadSize = (float) (this.baseSize * Math.max(0.3, Math.min(1.0, proj)) * fast);
         }
 
@@ -190,7 +203,12 @@ public class RainParticle extends SingleQuadParticle {
         double dy = this.y - RainSpawner.camY;
         double near = Math.sqrt(dx * dx + dy * dy + dz * dz);
         float a = this.baseAlpha * Math.min(1f, this.age / 6f);
-        if (near < 3.5) a *= (float) (near / 3.5);
+        if (sheet) {
+            // A big picture of many streaks: invisible close to the camera, where its flat shape would show.
+            a *= (float) Math.max(0.0, Math.min(1.0, (near - 3.5) / 5.0));
+        } else if (near < 3.5) {
+            a *= (float) (near / 3.5);
+        }
         double dh = Math.sqrt(dx * dx + dz * dz);
         double fadeStart = RainSpawner.radiusNow * 0.70;
         double fadeEnd = RainSpawner.radiusNow * 1.15;
@@ -206,11 +224,24 @@ public class RainParticle extends SingleQuadParticle {
             }
             // Sparkle: glinting drops flicker a little from tick to tick.
             if (glint) a *= 0.8f + 0.4f * this.random.nextFloat();
+            // Lightning: the rain lights up for an instant.
+            if (RainSpawner.flashBoost > 0f) a *= 1f + RainSpawner.flashBoost;
             if (a > 0.95f) a = 0.95f;
         }
-        this.setAlpha(a);
 
         int top = this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(this.x), Mth.floor(this.z));
+        if (sheet) {
+            // The picture is wide, so look at the columns across it too. It fades out before it reaches a roof or the ground
+            // (so it never visibly cuts through them) and ends there.
+            double o = this.quadSize * 0.6;
+            int topMax = Math.max(Math.max(top, heightAt(this.x + o, this.z)), Math.max(heightAt(this.x - o, this.z),
+                    Math.max(heightAt(this.x, this.z + o), heightAt(this.x, this.z - o))));
+            a *= (float) Math.max(0.0, Math.min(1.0, (this.y - topMax - 0.5) / 2.0));
+            this.setAlpha(a);
+            if (this.y <= topMax + 0.5) this.remove();
+            return;
+        }
+        this.setAlpha(a);
         if (this.y <= top) {
             // Landed if it crossed the surface during this tick (works however fast it falls); if it was already
             // below the top block it flew in under a roof, and just disappears.
@@ -222,6 +253,10 @@ public class RainParticle extends SingleQuadParticle {
         }
     }
 
+    private int heightAt(double x, double z) {
+        return this.level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z));
+    }
+
     public static class RainProvider implements ParticleProvider<SimpleParticleType> {
         private final SpriteSet sprites;
         public RainProvider(SpriteSet sprites) { this.sprites = sprites; }
@@ -229,7 +264,19 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, false, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, false, false, false, vx, vy, vz);
+        }
+    }
+
+    /** A big picture holding dozens of thin streaks: one particle that looks like a whole patch of rain. */
+    public static class SheetProvider implements ParticleProvider<SimpleParticleType> {
+        private final SpriteSet sprites;
+        public SheetProvider(SpriteSet sprites) { this.sprites = sprites; }
+
+        @Override
+        public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
+                                       double vx, double vy, double vz, RandomSource random) {
+            return new RainParticle(level, x, y, z, sprites, false, false, false, true, vx, vy, vz);
         }
     }
 
@@ -241,7 +288,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, false, true, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, false, true, false, vx, vy, vz);
         }
     }
 
@@ -253,7 +300,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, false, true, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, false, true, false, false, vx, vy, vz);
         }
     }
 
@@ -264,7 +311,7 @@ public class RainParticle extends SingleQuadParticle {
         @Override
         public Particle createParticle(SimpleParticleType type, ClientLevel level, double x, double y, double z,
                                        double vx, double vy, double vz, RandomSource random) {
-            return new RainParticle(level, x, y, z, sprites, true, false, false, vx, vy, vz);
+            return new RainParticle(level, x, y, z, sprites, true, false, false, false, vx, vy, vz);
         }
     }
 }

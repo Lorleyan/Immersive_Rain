@@ -36,7 +36,10 @@ public final class RainSpawner {
     /** Backlight setting times heavyFactor; read by the particles. */
     public static float backlightAmount;
     /** Share of drops that are glint variants right now (for /BRain status). */
-    public static float lastGlintShare, lastCurtainAmp;
+    public static float lastGlintShare, lastCurtainAmp, lastSheetShare;
+    /** How much brighter the rain is right now because of a lightning flash (0 = not at all). */
+    public static float flashBoost;
+    private static float accSheet;
 
     /** Counts spawner ticks. Particles stamp it so we can tell which ones Minecraft has stopped ticking. */
     public static long clock;
@@ -126,6 +129,8 @@ public final class RainSpawner {
         heavyFactor = ht * ht * (3f - 2f * ht);
         backlightAmount = cfg.backlight * heavyFactor;
         if (cfg.backlight > 0f && heavyFactor > 0f) SunMoon.update(level);
+        Flash.update(level);
+        flashBoost = cfg.lightningFlash ? cfg.flashStrength * 3f * Flash.level : 0f;
         splashes = cfg.splashes;
         double kill = cfg.radius + 20.0;
         killDistSq = kill * kill;
@@ -167,6 +172,8 @@ public final class RainSpawner {
         // Rain curtains: patches of thicker and thinner rain drifting with the wind. Candidates are raised by (1 + amp) and then
         // thinned by the local density, so the average amount of rain stays what the Density setting says.
         float amp = cfg.curtains ? Math.min(0.9f, 0.7f * cfg.curtainStrength * heavyFactor) : 0f;
+        // Debug view: show the curtains at full strength whatever the rain, so you can see what they do.
+        if (cfg.curtainDebug) amp = Math.min(0.9f, 0.7f * Math.max(0.5f, cfg.curtainStrength));
         lastCurtainAmp = amp;
         Curtains.advance(windX, windZ);
 
@@ -175,12 +182,18 @@ public final class RainSpawner {
         float nearLandings = perTick * (144f / (r * r));
         lastSplashTarget = (10f + 140f * inten * inten) * (1f + 0.5f * StormDirector.thunderBlend()) * cfg.splashAmount;
         splashChance = Math.min(0.7f, lastSplashTarget / Math.max(1f, nearLandings));
-        acc += Float.isFinite(perTick) ? perTick * (1f + amp) : 0f;
+        // With rain sheets on, fewer individual drops are needed (the sheets supply much of the look): saves a lot of CPU.
+        float sheetShare = (cfg.sheets && !cfg.seeThroughWindows && cfg.sheetAmount > 0f) ? heavyFactor : 0f;
+        lastSheetShare = sheetShare;
+        float dropFactor = 1f - 0.45f * Math.min(1f, cfg.sheetAmount) * sheetShare;
+        acc += Float.isFinite(perTick) ? perTick * (1f + amp) * dropFactor : 0f;
         int count = (int) acc;
         acc -= count;
-        count = Math.min(count, 12000);
+        count = Math.min(count, 30000);
+        // The particle limit and the per-tick limit apply to particles actually CREATED, not to candidates: candidates are
+        // thinned afterwards (curtains, roofs), and limiting them first would quietly lose rain.
         int cap = Math.min(cfg.maxParticles, autoCap);
-        count = Math.min(count, Math.max(0, cap - RainParticle.live()));
+        int room = Math.max(0, cap - RainParticle.live());
 
         // Motion blur: longer streaks, spread over more length, so each one is a little fainter.
         float stretch = 0.55f + 0.9f * cfg.motionBlur;
@@ -204,7 +217,68 @@ public final class RainSpawner {
         lastGlintShare = (cfg.glints && !cfg.seeThroughWindows) ? cfg.glintAmount * heavyFactor : 0f;
         double height = cfg.spawnHeight;
 
-        for (int n = 0; n < count; n++) {
+        int sheetsMade = 0;
+        // ---- rain sheets: big pictures of many thin streaks (the "tons of thin rain" look) ----
+        if (sheetShare > 0.01f && r > 6f) {
+            // How many sheets: none in light rain, about half as many in heavy rain as in torrential, a few more in thunder.
+            float sheetInten = Math.max(0f, Math.min(1f, (inten - 0.45f) / 0.55f));
+            float dSheet = 0.10f * cfg.sheetAmount * sheetShare * sheetInten
+                    * (1f + 0.25f * StormDirector.thunderBlend()) * StormDirector.densityMul;
+            float ampS = Math.min(0.95f, amp * 1.35f);               // sheets show the curtains more strongly
+            if (!Float.isFinite(accSheet)) accSheet = 0f;
+            accSheet += dSheet * (float) (Math.PI * r * r) * vyRain * (1f + ampS);
+            int sc = (int) accSheet;
+            accSheet -= sc;
+            int sheetBudget = Math.min(600, room);
+            float sheetAlpha = Math.min(0.8f, 0.36f * cfg.opacity / 0.45f);
+
+            for (int n = 0; n < sc && sheetsMade < sheetBudget; n++) {
+                double ang = rnd.nextDouble() * Math.PI * 2.0;
+                double dist = 5.0 + (r - 5.0) * Math.sqrt(rnd.nextDouble());     // never right next to the player
+                double tx = camX + Math.cos(ang) * dist;
+                double tz = camZ + Math.sin(ang) * dist;
+                double half = (1.7 + 1.0 * rnd.nextDouble()) * cfg.sheetSize;
+                double h = 1.0 + rnd.nextDouble() * height;
+                double ySpawn = camY + h;
+                float vy = vyRain * (1f + (rnd.nextFloat() * 2f - 1f) * cfg.fallSpeedVar);
+                double t = h / Math.max(0.05f, vy);
+                double sx = tx - windX * t;
+                double sz = tz - windZ * t;
+
+                // The picture is wide: every column across it must be open sky, with room to fade out above the roofs.
+                double o = half * 0.6;
+                int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(sx), Mth.floor(sz));
+                int topMax = Math.max(Math.max(top, level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(sx + o), Mth.floor(sz))),
+                        Math.max(level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(sx - o), Mth.floor(sz)),
+                        Math.max(level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(sx), Mth.floor(sz + o)),
+                                level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(sx), Mth.floor(sz - o)))));
+                if (ySpawn < topMax + 3.0) continue;
+
+                float curtain = ampS > 0f ? Curtains.multiplier(tx, tz, ampS) : 1f;
+                if (ampS > 0f && rnd.nextFloat() > curtain / (1f + ampS)) continue;
+
+                P.set(Mth.floor(sx), top, Mth.floor(sz));
+                if (level.getBiome(P).value().getPrecipitationAt(P, seaLevel) != Biome.Precipitation.RAIN) continue;
+
+                RainParticle.pendingSize = (float) half;
+                RainParticle.pendingAlpha = sheetAlpha * (0.8f + rnd.nextFloat() * 0.4f);
+                RainParticle.pendingWindMul = 0.9f + rnd.nextFloat() * 0.2f;
+                RainParticle.pendingTint = cfg.curtainDebug ? debugTint(curtain) : null;
+                level.addParticle(LivingRainMod.RAIN_SHEET[rnd.nextInt(LivingRainMod.RAIN_SHEET.length)], sx, ySpawn, sz, windX, -vy, windZ);
+                RainParticle.pendingTint = null;
+                lastSpawned++;
+                sheetsMade++;
+            }
+        } else {
+            accSheet = 0f;
+        }
+        room -= sheetsMade;
+
+
+        int dropBudget = Math.min(12000, room);
+        int made = 0;
+
+        for (int n = 0; n < count && made < dropBudget; n++) {
             double ang = rnd.nextDouble() * Math.PI * 2.0;
             double dist = r * Math.sqrt(rnd.nextDouble());
             double tx = camX + Math.cos(ang) * dist;
@@ -223,7 +297,8 @@ public final class RainSpawner {
             if (ySpawn < top + 0.5) continue;                    // that column is roofed over
 
             // thin out by the curtain pattern at the spot where the drop will pass the player
-            if (amp > 0f && rnd.nextFloat() > Curtains.multiplier(tx, tz, amp) / (1f + amp)) continue;
+            float curtain = amp > 0f ? Curtains.multiplier(tx, tz, amp) : 1f;
+            if (amp > 0f && rnd.nextFloat() > curtain / (1f + amp)) continue;
 
             P.set(bx, top, bz);
             Biome.Precipitation precip = level.getBiome(P).value().getPrecipitationAt(P, seaLevel);
@@ -237,16 +312,20 @@ public final class RainSpawner {
                 double vs = vySnow * (0.7f + rnd.nextFloat() * 0.6f);
                 level.addParticle(LivingRainMod.SNOW, sx, ySpawn, sz, windX, -vs, windZ);
                 lastSpawned++;
+                made++;
             } else {
                 RainParticle.pendingSize = size * (0.85f + rnd.nextFloat() * 0.3f);
                 RainParticle.pendingAlpha = alpha * (0.8f + rnd.nextFloat() * 0.4f);
                 RainParticle.pendingWindMul = 0.9f + rnd.nextFloat() * 0.2f;
+                RainParticle.pendingTint = cfg.curtainDebug ? debugTint(curtain) : null;
                 net.minecraft.core.particles.SimpleParticleType kind = rainType;
                 if (lastGlintShare > 0f && rnd.nextFloat() < lastGlintShare) {
                     kind = rnd.nextBoolean() ? LivingRainMod.RAIN_GLINT_A : LivingRainMod.RAIN_GLINT_B;
                 }
                 level.addParticle(kind, sx, ySpawn, sz, windX, -vy, windZ);
+                RainParticle.pendingTint = null;
                 lastSpawned++;
+                made++;
             }
         }
 
@@ -264,6 +343,13 @@ public final class RainSpawner {
         }
 
         playSounds(level, cfg, rnd, inten, seaLevel);
+    }
+
+    /** Curtain debug colours: red = thick rain, blue = thin rain, white = about average. */
+    private static float[] debugTint(float multiplier) {
+        if (multiplier > 1.25f) return new float[] { 1.0f, 0.25f, 0.25f };
+        if (multiplier < 0.75f) return new float[] { 0.3f, 0.5f, 1.0f };
+        return new float[] { 1.0f, 1.0f, 1.0f };
     }
 
     /** Vanilla's rain sounds come from the code we switch off, so this does the same job: sounds from nearby open ground. */

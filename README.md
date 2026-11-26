@@ -1,12 +1,25 @@
-# Brewtality's Immersive Rain 1.2.0  (Minecraft 26.3, Fabric)
+# Brewtality's Immersive Rain 1.1.2  (Minecraft 26.3, Fabric)
 
 Replaces vanilla rain and snow with particle rain that changes from storm to storm and during storms
 (drizzle, light, heavy, torrential, thunderstorm), with simulated wind. Client-side only: install it on your own game, no server needed.
 
 Part of a pair with **Brewtality's Immersive Drips** (roof, overhang and cave drips). Each works on its own; installed together they
-share one wind and the drips follow how heavy the rain is. **Both mods are version 1.2.0: use matching versions.**
+share one wind and the drips follow how heavy the rain is. Works with Brewtality's Immersive Drips 1.1.0 or newer (Immersive Drips has had no changes since 1.1.0).
 
-## 1.2.0: heavy-rain effects, and a drizzle fix
+## 1.1.2: rain sheets, lightning flash, curtain view
+* **Rain sheets** (Mod Menu > Rain Look > Heavy-rain effects): in heavy rain, torrential rain and thunderstorms, many extra thin streaks are
+  drawn as big flat pictures, each holding dozens of drops. That is what gives a downpour its dense, thin-streak look. Drizzle and light rain
+  are unchanged (plain particles). Fewer individual drops are made while sheets are on, which saves CPU. Sheets fade out before they reach a
+  roof or the ground and never appear under cover. Settings: "Rain sheets", "Sheet amount" (red above 150%), "Sheet size".
+  Not used when "See rain through windows" is on.
+* **Rain curtains are visible now.** Sheets show the thick and thin patches clearly. To see exactly what the curtains do, use the new
+  debug view: Debug tab > "Show rain curtains (tint)" or `/BRain curtains show on|off` (red = thick rain, blue = thin rain; it shows the
+  curtains at full strength even in light rain; it switches itself off when you restart the game).
+* **Lightning flash:** the rain lights up for an instant when lightning strikes. Settings: "Lightning flash", "Flash strength". Test it with `/BRain flash`.
+* Fixed: the particle limit could quietly cut the amount of rain when curtains were on; limits now apply to particles actually created.
+* `/BRain status` now also shows sheets alive, sheet strength, whether the lightning-flash timer was found, and the curtain view state.
+
+## 1.1.1: heavy-rain effects, and a drizzle fix
 * **Drizzle is visible again.** Each drizzle drop was getting only 12% opacity (the faintest of any rain, and it has the fewest drops).
   Drizzle and light rain drops are now clearly more visible; heavy and torrential rain look as before.
   The experimental "See rain through windows" mode also no longer makes drizzle all but vanish.
@@ -15,14 +28,13 @@ share one wind and the drips follow how heavy the rain is. **Both mods are versi
   * **Glinting drops:** a share of drops get a brighter segment, like a streak catching the light, and sparkle slightly.
   * **Backlight glow:** rain glows when it is between you and the sun or moon.
 * `/BRain status` shows the effect strength, curtain contrast, share of glinting drops, and whether the sun/moon direction could be read.
-* Immersive Drips 1.2.0 has no code changes: its version is raised so both mods match.
 
 ## 1.1.0: renamed, and versions aligned
 * Renamed from "Living Rain" to **Brewtality's Immersive Rain** (and "Roof Drips" is now **Brewtality's Immersive Drips**).
   Both mods start at 1.1.0 from here on.
 * **Your settings are kept.** Only the display name changed; the mod's internal ID (`livingrain`) and settings file are the same.
 * **Remove the old jar files before installing the new ones.** Delete `livingrain-*.jar` and `roofdrips-*.jar` from your `mods` folder.
-  The new files are called `brewtality-immersive-rain-1.2.0.jar` and `brewtality-immersive-drips-1.2.0.jar`. Because the internal IDs are
+  The new files are called `brewtality-immersive-rain-<version>.jar` and `brewtality-immersive-drips-<version>.jar`. Because the internal IDs are
   the same, leaving an old jar in place would give Fabric two copies of the same mod.
 * The chat commands are now `/BRain ...` (see "Console commands" below). The old `/livingrain` name no longer exists.
 
@@ -30,7 +42,7 @@ share one wind and the drips follow how heavy the rain is. **Both mods are versi
 1. Upload everything in this folder to a GitHub repository. Make sure the hidden `.github` folder came along
    (it holds `.github/workflows/build.yml`). If GitHub added its own Gradle workflow file, delete that one.
 2. Wait for the "Build mod" action to get a green tick, open it and download **brewtality-immersive-rain**.
-3. Put the `.jar` in your `mods` folder next to Fabric API, YACL and Mod Menu (and Brewtality's Immersive Drips 1.2.0 for the link).
+3. Put the `.jar` in your `mods` folder next to Fabric API, YACL and Mod Menu (and Brewtality's Immersive Drips 1.1.0 or newer for the link).
 
 If the build fails, copy the red error text from the build log and send it to me.
 
@@ -45,6 +57,8 @@ Type `/BRain` and press Tab to see them. The same list is shown in the Debug tab
 | `/BRain weather real\|clear\|drizzle\|light\|heavy\|torrential\|thunder` | Test weather on your screen only (`real` stops testing) |
 | `/BRain vanilla on\|off` | Show or hide vanilla rain alongside the particle rain |
 | `/BRain drips on\|off` | Immersive Drips' drip amounts follow the rain's severity, or not |
+| `/BRain curtains show on\|off` | Debug view: tints rain red where the rain curtain is thick and blue where it is thin |
+| `/BRain flash` | Test the lightning flash (the rain brightens for an instant) |
 | `/BRain status` | Shows what the mod is doing: particles alive, limits, which hooks work. **If rain ever stops, run this and send me the output.** |
 
 Reserved name: `/BDrip` is for console commands in Brewtality's Immersive Drips, which has none yet.
